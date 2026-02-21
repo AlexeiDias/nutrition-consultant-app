@@ -16,9 +16,11 @@ export default function Home() {
       router.push('/login');
       return;
     }
-    if (profile?.role === 'consultant') {
+    // Wait for profile to load before redirecting
+    if (!profile) return;
+    if (profile.role === 'consultant') {
       router.push('/consultant/dashboard');
-    } else if (profile?.role === 'client') {
+    } else if (profile.role === 'client') {
       router.push('/client/dashboard');
     }
   }, [user, profile, loading, router]);
