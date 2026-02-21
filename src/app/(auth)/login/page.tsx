@@ -1,9 +1,9 @@
 //src/app/(auth)/login/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getUserProfile } from '@/lib/firestore';
 import Input from '@/components/ui/Input';
@@ -16,6 +16,11 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Force clear any existing session when login page loads
+  useEffect(() => {
+    signOut(auth);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

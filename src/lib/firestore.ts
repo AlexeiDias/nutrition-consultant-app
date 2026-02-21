@@ -58,11 +58,19 @@ export const createDailyLog = async (data: Omit<DailyLog, 'id'>) => {
 export const getLogsByClient = async (clientId: string): Promise<DailyLog[]> => {
   const q = query(
     collection(db, 'dailyLogs'),
-    where('clientId', '==', clientId),
-    orderBy('date', 'desc')
+    where('clientId', '==', clientId)
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as DailyLog));
+  const logs = snap.docs.map(d => ({ id: d.id, ...d.data() } as DailyLog));
+  return logs.sort((a, b) => {
+    const dateA = (a.date as any)?.seconds
+      ? (a.date as any).seconds
+      : new Date(a.date).getTime() / 1000;
+    const dateB = (b.date as any)?.seconds
+      ? (b.date as any).seconds
+      : new Date(b.date).getTime() / 1000;
+    return dateB - dateA;
+  });
 };
 
 // ── Nutrition Plans ────────────────────────────────
