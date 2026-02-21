@@ -55,37 +55,49 @@ export default function LogPage() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!clientId) {
-      toast.error('Client record not found');
-      return;
+  e.preventDefault();
+  if (!clientId) {
+    toast.error('Client record not found. Please contact your consultant.');
+    return;
+  }
+  setLoading(true);
+  try {
+    await createDailyLog({
+      clientId,
+      date: new Date(),
+      meals,
+      waterIntake: Number(form.waterIntake),
+      weight: Number(form.weight),
+      symptoms: form.symptoms,
+      mood: form.mood,
+      exercise: form.exercise,
+      notes: form.notes,
+      reportSent: false,
+    });
+    toast.success('Log saved successfully!');
+    router.push('/client/dashboard');
+  } catch (err: unknown) {
+    console.error('Full error:', err);
+    if (err instanceof Error) {
+      toast.error(`Error: ${err.message}`);
+    } else {
+      toast.error('Unknown error — check console');
     }
-    setLoading(true);
-    try {
-      await createDailyLog({
-        clientId,
-        date: new Date(),
-        meals,
-        waterIntake: Number(form.waterIntake),
-        weight: Number(form.weight),
-        symptoms: form.symptoms,
-        mood: form.mood,
-        exercise: form.exercise,
-        notes: form.notes,
-        reportSent: false,
-      });
-      toast.success('Log saved successfully!');
-      router.push('/client/dashboard');
-    } catch (err) {
-      toast.error('Failed to save log');
-    } finally {
-      setLoading(false);
-    }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
+        {!clientId && (
+  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+    <p className="text-red-700 text-sm font-medium">
+      ⚠️ Client record not linked. Please sign out and sign back in.
+    </p>
+  </div>
+)}
         <h1 className="text-2xl font-bold text-gray-900">Today's Log</h1>
         <p className="text-gray-500 mt-1">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
