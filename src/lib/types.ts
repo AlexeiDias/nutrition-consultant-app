@@ -1,4 +1,4 @@
-//src/lib/types.ts
+// src/lib/types.ts
 export type UserRole = 'consultant' | 'client';
 
 export interface UserProfile {
@@ -7,6 +7,24 @@ export interface UserProfile {
   name: string;
   role: UserRole;
   createdAt: Date;
+}
+
+export interface ConsultantProfile {
+  uid: string;
+  bio: string;
+  credentials: string;
+  specializations: string[];
+  phone: string;
+  photoUrl: string;
+  isPublic: boolean;
+  updatedAt: Date;
+}
+
+export interface ClientProfile {
+  uid: string;
+  phone: string;
+  photoUrl: string;
+  updatedAt: Date;
 }
 
 export interface Client {
@@ -42,6 +60,29 @@ export interface Meal {
   time: string;
   description: string;
   calories: number;
+}
+
+export interface ActionPlanTask {
+  id: string;
+  title: string;
+  description: string;
+  category: 'nutrition' | 'exercise' | 'hydration' | 'lifestyle';
+  completed: boolean;
+  completedAt: Date | null;
+}
+
+export interface ActionPlan {
+  id: string;
+  consultantId: string;
+  clientId: string;
+  clientName: string;
+  title: string;
+  startDate: Date;
+  nextConsultation: Date;
+  status: 'active' | 'completed' | 'archived';
+  tasks: ActionPlanTask[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface NutritionPlan {

@@ -1,3 +1,4 @@
+// Consultant dashboard sidebar component with navigation links and user profile info
 //src/components/consultant/Sidebar.tsx
 'use client';
 
@@ -9,7 +10,9 @@ import toast from 'react-hot-toast';
 const navItems = [
   { label: 'Dashboard', href: '/consultant/dashboard', icon: '📊' },
   { label: 'Clients', href: '/consultant/clients', icon: '👥' },
-  { label: 'Reports', href: '/consultant/reports', icon: '📋' },
+  { label: 'Action Plans', href: '/consultant/action-plans', icon: '📋' },
+  { label: 'Reports', href: '/consultant/reports', icon: '📈' },
+  { label: 'Profile', href: '/consultant/profile', icon: '👤' },
 ];
 
 export default function Sidebar() {
@@ -25,7 +28,6 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 bg-white border-r border-gray-200 flex flex-col min-h-screen">
-      {/* Logo */}
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <span className="text-3xl">🥗</span>
@@ -36,7 +38,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 p-4 flex flex-col gap-1">
         {navItems.map((item) => {
           const active = pathname.startsWith(item.href);
@@ -57,7 +58,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* User + Logout */}
       <div className="p-4 border-t border-gray-200">
         <div className="flex items-center gap-3 px-2 mb-3">
           <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm">
