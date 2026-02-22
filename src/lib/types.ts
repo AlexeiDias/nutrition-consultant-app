@@ -81,6 +81,8 @@ export interface ActionPlan {
   nextConsultation: Date;
   status: 'active' | 'completed' | 'archived';
   tasks: ActionPlanTask[];
+  startWeight: number | null;
+  targetWeight: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

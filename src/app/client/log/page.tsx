@@ -129,28 +129,34 @@ export default function LogPage() {
           </button>
         </div>
 
-        {/* Vitals */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">📏 Vitals</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Water Intake (Liters)"
-              type="number"
-              step="0.1"
-              placeholder="2.5"
-              value={form.waterIntake}
-              onChange={(e) => setForm(p => ({ ...p, waterIntake: e.target.value }))}
-            />
-            <Input
-              label="Weight (kg)"
-              type="number"
-              step="0.1"
-              placeholder="70.0"
-              value={form.weight}
-              onChange={(e) => setForm(p => ({ ...p, weight: e.target.value }))}
-            />
-          </div>
-        </div>
+       {/* Vitals */}
+<div className="bg-white rounded-xl border border-gray-200 p-6">
+  <h2 className="font-semibold text-gray-900 mb-4">📏 Vitals</h2>
+  <div className="grid grid-cols-2 gap-4">
+    <Input
+      label="Water Intake (Liters)"
+      type="number"
+      step="0.1"
+      placeholder="2.5"
+      value={form.waterIntake}
+      onChange={(e) => setForm(p => ({ ...p, waterIntake: e.target.value }))}
+    />
+    <div className="flex flex-col gap-1">
+      <label className="text-sm font-medium text-gray-700">
+        Weight (kg) <span className="text-gray-400 font-normal">— optional</span>
+      </label>
+      <input
+        type="number"
+        step="0.1"
+        placeholder="Only log if weighed today"
+        value={form.weight}
+        onChange={(e) => setForm(p => ({ ...p, weight: e.target.value }))}
+        className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500"
+      />
+      <p className="text-xs text-gray-400">Recommended: first and last day of your plan</p>
+    </div>
+  </div>
+</div>
 
         {/* Wellbeing */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">

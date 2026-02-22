@@ -44,6 +44,17 @@ export default function NewActionPlanPage() {
     category: 'nutrition' as ActionPlanTask['category'],
   });
 
+  const [form, setForm] = useState({
+  title: '',
+  clientId: clientId,
+  clientName: clientName,
+  startDate: new Date().toISOString().split('T')[0],
+  nextConsultation: '',
+  status: 'active' as const,
+  startWeight: '',
+  targetWeight: '',
+});
+
   const handleAddTask = () => {
     if (!newTask.title.trim()) return;
     setTasks((prev) => [
@@ -72,17 +83,19 @@ export default function NewActionPlanPage() {
     setLoading(true);
     try {
       await createActionPlan({
-        consultantId: profile.uid,
-        clientId: form.clientId,
-        clientName: form.clientName,
-        title: form.title,
-        startDate: new Date(form.startDate),
-        nextConsultation: new Date(form.nextConsultation),
-        status: form.status,
-        tasks,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+  consultantId: profile.uid,
+  clientId: form.clientId,
+  clientName: form.clientName,
+  title: form.title,
+  startDate: new Date(form.startDate),
+  nextConsultation: new Date(form.nextConsultation),
+  status: form.status,
+  startWeight: form.startWeight ? Number(form.startWeight) : null,
+  targetWeight: form.targetWeight ? Number(form.targetWeight) : null,
+  tasks,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+});
       toast.success('Action plan created!');
       router.push('/consultant/action-plans');
     } catch {
@@ -144,6 +157,24 @@ export default function NewActionPlanPage() {
               <option value="archived">Archived</option>
             </select>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+  <Input
+    label="Starting Weight (kg)"
+    type="number"
+    step="0.1"
+    placeholder="e.g. 85.0"
+    value={form.startWeight}
+    onChange={(e) => setForm((p) => ({ ...p, startWeight: e.target.value }))}
+  />
+  <Input
+    label="Target Weight (kg)"
+    type="number"
+    step="0.1"
+    placeholder="e.g. 78.0"
+    value={form.targetWeight}
+    onChange={(e) => setForm((p) => ({ ...p, targetWeight: e.target.value }))}
+  />
+</div>
         </div>
 
         {/* Tasks */}
