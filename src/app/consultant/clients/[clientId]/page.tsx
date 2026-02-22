@@ -157,14 +157,20 @@ export default function ClientProfilePage() {
             Personal Information
           </h2>
           {editing ? (
-            <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Full Name" value={form.name}
-                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-                <Input label="Phone" value={form.phone}
-                  onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+  <div className="flex flex-col gap-4">
+    <div className="grid grid-cols-2 gap-4">
+      <Input label="Full Name" value={form.name}
+        onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+      <Input label="Phone" value={form.phone}
+        onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
+    </div>
+    <Input
+      label="Email"
+      type="email"
+      value={form.email}
+      onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+    />
+    <div className="grid grid-cols-2 gap-4">
                 <Input label="Date of Birth" type="date" value={form.dob}
                   onChange={(e) => setForm((p) => ({ ...p, dob: e.target.value }))} />
                 <div className="flex flex-col gap-1">
