@@ -239,6 +239,49 @@ export default function ClientPlanPage() {
               </div>
             </div>
 
+            {/* Planned Meals */}
+{activePlan.plannedMeals && activePlan.plannedMeals.length > 0 && (
+  <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <h3 className="font-semibold text-gray-900 mb-4">🍽️ Your Meal Plan</h3>
+    <div className="flex flex-col gap-4">
+      {activePlan.plannedMeals.map((meal) => (
+        <div key={meal.id} className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <h4 className="font-semibold text-green-900 mb-2">{meal.name}</h4>
+          <div className="grid grid-cols-4 gap-2 text-center mb-3">
+            <div>
+              <p className="text-sm font-bold text-orange-600">{meal.totalCalories}</p>
+              <p className="text-xs text-gray-500">kcal</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-blue-600">{meal.totalProtein}g</p>
+              <p className="text-xs text-gray-500">Protein</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-yellow-600">{meal.totalFat}g</p>
+              <p className="text-xs text-gray-500">Fat</p>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-green-600">{meal.totalCarbs}g</p>
+              <p className="text-xs text-gray-500">Carbs</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            {meal.ingredients.map((ing) => (
+              <div
+                key={ing.id}
+                className="flex items-center justify-between text-xs text-gray-600 bg-white rounded px-2 py-1.5 border border-green-100"
+              >
+                <span>{ing.name}</span>
+                <span className="text-gray-400">{ing.quantity}g · {ing.calories} kcal</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
             {/* Tasks by Category */}
             {categories.map((category) => {
               const categoryTasks = activePlan.tasks.filter(

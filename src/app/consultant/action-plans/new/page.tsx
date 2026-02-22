@@ -6,16 +6,15 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { createActionPlan } from '@/lib/firestore';
-import { ActionPlanTask } from '@/lib/types';
+import { ActionPlanTask, PlannedMeal } from '@/lib/types';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import CalorieCalculator from '@/components/consultant/CalorieCalculator';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { v4 as uuidv4 } from 'uuid';
-import CalorieCalculator from '@/components/consultant/CalorieCalculator';
 
 const categoryColors = {
-  nutrition: 'bg-green-100 text-green-700 border-green-200',
   exercise: 'bg-blue-100 text-blue-700 border-blue-200',
   hydration: 'bg-cyan-100 text-cyan-700 border-cyan-200',
   lifestyle: 'bg-purple-100 text-purple-700 border-purple-200',
@@ -31,23 +30,34 @@ export default function NewActionPlanPage() {
   const [loading, setLoading] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
 
+  const [form, setForm] = useState({
+    title: '',
+    clientId,
+    clientName,
+    startDate: new Date().toISOString().split('T')[0],
+    nextConsultation: '',
+    status: 'active' as const,
+    startWeight: '',
+    targetWeight: '',
+  });
+
+  const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
   const [tasks, setTasks] = useState<ActionPlanTask[]>([]);
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
-    category: 'nutrition' as ActionPlanTask['category'],
+    category: 'exercise' as ActionPlanTask['category'],
   });
 
-  const [form, setForm] = useState({
-  title: '',
-  clientId: clientId,
-  clientName: clientName,
-  startDate: new Date().toISOString().split('T')[0],
-  nextConsultation: '',
-  status: 'active' as const,
-  startWeight: '',
-  targetWeight: '',
-});
+  const handleAddMeal = (meal: PlannedMeal) => {
+    setPlannedMeals((prev) => [...prev, meal]);
+    toast.success(`${meal.name} added to plan!`);
+    setShowCalculator(false);
+  };
+
+  const handleRemoveMeal = (mealId: string) => {
+    setPlannedMeals((prev) => prev.filter((m) => m.id !== mealId));
+  };
 
   const handleAddTask = () => {
     if (!newTask.title.trim()) return;
@@ -62,7 +72,7 @@ export default function NewActionPlanPage() {
         completedAt: null,
       },
     ]);
-    setNewTask({ title: '', description: '', category: 'nutrition' });
+    setNewTask({ title: '', description: '', category: 'exercise' });
   };
 
   const handleRemoveTask = (id: string) => {
@@ -73,23 +83,23 @@ export default function NewActionPlanPage() {
     e.preventDefault();
     if (!profile?.uid) return;
     if (!form.clientId) { toast.error('Please select a client'); return; }
-    if (tasks.length === 0) { toast.error('Add at least one task'); return; }
     setLoading(true);
     try {
       await createActionPlan({
-  consultantId: profile.uid,
-  clientId: form.clientId,
-  clientName: form.clientName,
-  title: form.title,
-  startDate: new Date(form.startDate),
-  nextConsultation: new Date(form.nextConsultation),
-  status: form.status,
-  startWeight: form.startWeight ? Number(form.startWeight) : null,
-  targetWeight: form.targetWeight ? Number(form.targetWeight) : null,
-  tasks,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-});
+        consultantId: profile.uid,
+        clientId: form.clientId,
+        clientName: form.clientName,
+        title: form.title,
+        startDate: new Date(form.startDate),
+        nextConsultation: new Date(form.nextConsultation),
+        status: form.status,
+        tasks,
+        plannedMeals,
+        startWeight: form.startWeight ? Number(form.startWeight) : null,
+        targetWeight: form.targetWeight ? Number(form.targetWeight) : null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
       toast.success('Action plan created!');
       router.push('/consultant/action-plans');
     } catch {
@@ -139,6 +149,24 @@ export default function NewActionPlanPage() {
               required
             />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Starting Weight (kg)"
+              type="number"
+              step="0.1"
+              placeholder="e.g. 85.0"
+              value={form.startWeight}
+              onChange={(e) => setForm((p) => ({ ...p, startWeight: e.target.value }))}
+            />
+            <Input
+              label="Target Weight (kg)"
+              type="number"
+              step="0.1"
+              placeholder="e.g. 78.0"
+              value={form.targetWeight}
+              onChange={(e) => setForm((p) => ({ ...p, targetWeight: e.target.value }))}
+            />
+          </div>
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">Status</label>
             <select
@@ -151,24 +179,80 @@ export default function NewActionPlanPage() {
               <option value="archived">Archived</option>
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-  <Input
-    label="Starting Weight (kg)"
-    type="number"
-    step="0.1"
-    placeholder="e.g. 85.0"
-    value={form.startWeight}
-    onChange={(e) => setForm((p) => ({ ...p, startWeight: e.target.value }))}
-  />
-  <Input
-    label="Target Weight (kg)"
-    type="number"
-    step="0.1"
-    placeholder="e.g. 78.0"
-    value={form.targetWeight}
-    onChange={(e) => setForm((p) => ({ ...p, targetWeight: e.target.value }))}
-  />
-</div>
+        </div>
+
+        {/* Planned Meals */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
+            🍽️ Planned Meals
+          </h2>
+
+          {/* Existing Meals */}
+          {plannedMeals.length > 0 && (
+            <div className="flex flex-col gap-3 mb-4">
+              {plannedMeals.map((meal) => (
+                <div
+                  key={meal.id}
+                  className="bg-green-50 border border-green-200 rounded-lg p-4"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-green-900">{meal.name}</h4>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMeal(meal.id)}
+                      className="text-red-400 hover:text-red-600 text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 text-center mb-3">
+                    <div>
+                      <p className="text-sm font-bold text-orange-600">{meal.totalCalories}</p>
+                      <p className="text-xs text-gray-500">kcal</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-blue-600">{meal.totalProtein}g</p>
+                      <p className="text-xs text-gray-500">Protein</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-yellow-600">{meal.totalFat}g</p>
+                      <p className="text-xs text-gray-500">Fat</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-green-600">{meal.totalCarbs}g</p>
+                      <p className="text-xs text-gray-500">Carbs</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    {meal.ingredients.map((ing) => (
+                      <div
+                        key={ing.id}
+                        className="flex items-center justify-between text-xs text-gray-600 bg-white rounded px-2 py-1"
+                      >
+                        <span>{ing.name}</span>
+                        <span>{ing.quantity}g · {ing.calories} kcal</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Calculator Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowCalculator((p) => !p)}
+            className="w-full border border-dashed border-green-300 rounded-lg p-3 text-sm text-green-700 hover:bg-green-50 transition-all"
+          >
+            {showCalculator ? '▲ Hide Calculator' : '+ Add Meal with Calculator'}
+          </button>
+
+          {showCalculator && (
+            <div className="mt-4">
+              <CalorieCalculator compact onSaveMeal={handleAddMeal} />
+            </div>
+          )}
         </div>
 
         {/* Tasks */}
@@ -177,7 +261,6 @@ export default function NewActionPlanPage() {
             Tasks
           </h2>
 
-          {/* Existing Tasks */}
           {tasks.length > 0 && (
             <div className="flex flex-col gap-2 mb-4">
               {tasks.map((task) => (
@@ -204,17 +287,18 @@ export default function NewActionPlanPage() {
             </div>
           )}
 
-          {/* Add New Task */}
           <div className="bg-gray-50 rounded-lg p-4 flex flex-col gap-3">
             <p className="text-sm font-medium text-gray-700">Add Task</p>
             <Input
               label="Task Title"
-              placeholder="e.g. Drink 2.5L of water daily"
+              placeholder="e.g. 30 min walk every morning"
               value={newTask.title}
               onChange={(e) => setNewTask((p) => ({ ...p, title: e.target.value }))}
             />
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">Description (optional)</label>
+              <label className="text-sm font-medium text-gray-700">
+                Description (optional)
+              </label>
               <textarea
                 rows={2}
                 placeholder="Additional details..."
@@ -230,7 +314,6 @@ export default function NewActionPlanPage() {
                 onChange={(e) => setNewTask((p) => ({ ...p, category: e.target.value as any }))}
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
               >
-                <option value="nutrition">🥗 Nutrition</option>
                 <option value="exercise">🏃 Exercise</option>
                 <option value="hydration">💧 Hydration</option>
                 <option value="lifestyle">🌿 Lifestyle</option>
@@ -241,22 +324,6 @@ export default function NewActionPlanPage() {
             </Button>
           </div>
         </div>
-        {/* Calorie Calculator */}
-<div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-  <button
-    type="button"
-    onClick={() => setShowCalculator((p) => !p)}
-    className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-all"
-  >
-    <span className="font-semibold text-gray-900">🧮 Calorie Calculator</span>
-    <span className="text-gray-400">{showCalculator ? '▲ Hide' : '▼ Show'}</span>
-  </button>
-  {showCalculator && (
-    <div className="p-4 border-t border-gray-100">
-      <CalorieCalculator compact />
-    </div>
-  )}
-</div>
 
         <Button type="submit" loading={loading} className="w-full">
           Create Action Plan

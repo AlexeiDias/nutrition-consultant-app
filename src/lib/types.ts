@@ -46,7 +46,7 @@ export interface DailyLog {
   id: string;
   clientId: string;
   date: Date;
-  meals: Meal[];
+  mealsExperience: string;
   waterIntake: number;
   weight: number;
   symptoms: string;
@@ -66,7 +66,7 @@ export interface ActionPlanTask {
   id: string;
   title: string;
   description: string;
-  category: 'nutrition' | 'exercise' | 'hydration' | 'lifestyle';
+  category: 'exercise' | 'hydration' | 'lifestyle';
   completed: boolean;
   completedAt: Date | null;
 }
@@ -81,6 +81,7 @@ export interface ActionPlan {
   nextConsultation: Date;
   status: 'active' | 'completed' | 'archived';
   tasks: ActionPlanTask[];
+  plannedMeals: PlannedMeal[];
   startWeight: number | null;
   targetWeight: number | null;
   createdAt: Date;
@@ -96,4 +97,24 @@ export interface NutritionPlan {
   endDate: Date;
   goals: string[];
   updatedAt: Date;
+}
+
+export interface PlannedMealIngredient {
+  id: string;
+  name: string;
+  quantity: number;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+}
+
+export interface PlannedMeal {
+  id: string;
+  name: string;
+  ingredients: PlannedMealIngredient[];
+  totalCalories: number;
+  totalProtein: number;
+  totalFat: number;
+  totalCarbs: number;
 }
