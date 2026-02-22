@@ -12,6 +12,7 @@ import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { v4 as uuidv4 } from 'uuid';
+import CalorieCalculator from '@/components/consultant/CalorieCalculator';
 
 const categoryColors = {
   nutrition: 'bg-green-100 text-green-700 border-green-200',
@@ -28,7 +29,7 @@ export default function NewActionPlanPage() {
   const clientName = searchParams.get('clientName') ?? '';
 
   const [loading, setLoading] = useState(false);
-  
+  const [showCalculator, setShowCalculator] = useState(false);
 
   const [tasks, setTasks] = useState<ActionPlanTask[]>([]);
   const [newTask, setNewTask] = useState({
@@ -240,6 +241,22 @@ export default function NewActionPlanPage() {
             </Button>
           </div>
         </div>
+        {/* Calorie Calculator */}
+<div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <button
+    type="button"
+    onClick={() => setShowCalculator((p) => !p)}
+    className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-all"
+  >
+    <span className="font-semibold text-gray-900">🧮 Calorie Calculator</span>
+    <span className="text-gray-400">{showCalculator ? '▲ Hide' : '▼ Show'}</span>
+  </button>
+  {showCalculator && (
+    <div className="p-4 border-t border-gray-100">
+      <CalorieCalculator compact />
+    </div>
+  )}
+</div>
 
         <Button type="submit" loading={loading} className="w-full">
           Create Action Plan

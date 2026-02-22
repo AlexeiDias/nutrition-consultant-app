@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import toast from 'react-hot-toast';
+import CalorieCalculator from '@/components/consultant/CalorieCalculator';
 
 const categoryColors = {
   nutrition: 'bg-green-50 border-green-200 text-green-800',
@@ -35,6 +36,7 @@ export default function ActionPlanDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
 
   const [editForm, setEditForm] = useState({
     title: '',
@@ -337,6 +339,26 @@ export default function ActionPlanDetailPage() {
             </div>
           </div>
         </div>
+        {/* Calorie Calculator */}
+<div className="no-print">
+  <button
+    onClick={() => setShowCalculator((p) => !p)}
+    className="w-full bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between hover:bg-gray-50 transition-all"
+  >
+    <span className="font-semibold text-gray-900">🧮 Calorie Calculator</span>
+    <span className="text-gray-400">{showCalculator ? '▲ Hide' : '▼ Show'}</span>
+  </button>
+  {showCalculator && (
+    <div className="mt-2">
+      <CalorieCalculator
+        compact
+        onSaveMeal={(meal) => {
+          toast.success(`${meal.name} — ${meal.totalCalories} kcal saved as reference`);
+        }}
+      />
+    </div>
+  )}
+</div>
 
         {/* Print Styles */}
         <style jsx global>{`
