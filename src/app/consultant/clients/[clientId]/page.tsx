@@ -63,19 +63,43 @@ export default function ClientProfilePage() {
   }, [clientId]);
 
   const handleSave = async () => {
-    if (!clientId) return;
-    setSaving(true);
-    try {
-      await updateClient(clientId, form);
-      setClient((prev) => prev ? { ...prev, ...form } : prev);
-      toast.success('Client updated!');
-      setEditing(false);
-    } catch {
-      toast.error('Failed to update client');
-    } finally {
-      setSaving(false);
+  if (!clientId) return;
+  setSaving(true);
+  try {
+    // Update Firestore client document
+    await updateClient(clientId, form);
+
+    // If email changed, update Firebase Auth via API
+    if (client?.email !== form.email) {
+      const res = await fetch('/api/update-client-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientUserId: client?.clientUserId,
+          newEmail: form.email,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      // Also update the users collection
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      await updateDoc(doc(db, 'users', client!.clientUserId), {
+        email: form.email,
+      });
     }
-  };
+
+    setClient((prev) => prev ? { ...prev, ...form } : prev);
+    toast.success('Client updated!');
+    setEditing(false);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to update client';
+    toast.error(message);
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (loading) return <div className="flex justify-center py-12"><LoadingSpinner /></div>;
   if (!client) return <div className="text-gray-500">Client not found</div>;
