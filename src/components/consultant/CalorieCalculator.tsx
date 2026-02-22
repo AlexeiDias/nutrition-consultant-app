@@ -20,17 +20,21 @@ interface FoodResult {
 interface CalorieCalculatorProps {
   onSaveMeal?: (meal: PlannedMeal) => void;
   compact?: boolean;
+  initialMealName?: string;
+  initialIngredients?: PlannedMealIngredient[];
 }
 
 export default function CalorieCalculator({
   onSaveMeal,
   compact = false,
+  initialMealName = '',
+  initialIngredients = [],
 }: CalorieCalculatorProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const [ingredients, setIngredients] = useState<PlannedMealIngredient[]>([]);
-  const [mealName, setMealName] = useState('');
+  const [ingredients, setIngredients] = useState<PlannedMealIngredient[]>(initialIngredients);
+  const [mealName, setMealName] = useState(initialMealName);
   const [servingInputs, setServingInputs] = useState<Record<string, number>>({});
 
   const searchFood = async () => {

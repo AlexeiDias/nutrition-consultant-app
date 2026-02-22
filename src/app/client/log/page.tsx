@@ -18,15 +18,16 @@ export default function LogPage() {
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
-    waterIntake: '',
-    weight: '',
-    symptoms: '',
-    mood: '',
-    exercise: '',
-    mealsExperience: '',
-    notes: '',
-  });
-
+  waterIntake: '',
+  weight: '',
+  symptoms: '',
+  mood: '',
+  exercise: '',
+  mealsExperience: '',
+  bowelMovement: '',
+  nightSleep: '',
+  notes: '',
+});
   useEffect(() => {
     if (!profile?.uid) return;
     const fetchClientId = async () => {
@@ -49,17 +50,19 @@ export default function LogPage() {
     setLoading(true);
     try {
       await createDailyLog({
-        clientId,
-        date: new Date(),
-        mealsExperience: form.mealsExperience,
-        waterIntake: Number(form.waterIntake),
-        weight: Number(form.weight),
-        symptoms: form.symptoms,
-        mood: form.mood,
-        exercise: form.exercise,
-        notes: form.notes,
-        reportSent: false,
-      });
+  clientId,
+  date: new Date(),
+  mealsExperience: form.mealsExperience,
+  waterIntake: Number(form.waterIntake),
+  weight: Number(form.weight),
+  symptoms: form.symptoms,
+  mood: form.mood,
+  exercise: form.exercise,
+  bowelMovement: form.bowelMovement,
+  nightSleep: form.nightSleep,
+  notes: form.notes,
+  reportSent: false,
+});
       toast.success('Log saved successfully!');
       router.push('/client/dashboard');
     } catch (err: unknown) {
@@ -179,6 +182,34 @@ export default function LogPage() {
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
               />
             </div>
+
+            {/* Bowel Movement */}
+<div className="flex flex-col gap-1">
+  <label className="text-sm font-medium text-gray-700">
+    Bowel Movement
+  </label>
+  <textarea
+    value={form.bowelMovement}
+    onChange={(e) => setForm((p) => ({ ...p, bowelMovement: e.target.value }))}
+    rows={2}
+    placeholder="Any notes about your bowel movement today..."
+    className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
+  />
+</div>
+
+{/* Night Sleep */}
+<div className="flex flex-col gap-1">
+  <label className="text-sm font-medium text-gray-700">
+    Night Sleep
+  </label>
+  <textarea
+    value={form.nightSleep}
+    onChange={(e) => setForm((p) => ({ ...p, nightSleep: e.target.value }))}
+    rows={2}
+    placeholder="How did you sleep last night? Hours, quality, any issues..."
+    className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
+  />
+</div>
 
             {/* Additional Notes */}
             <div className="flex flex-col gap-1">

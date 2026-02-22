@@ -52,6 +52,8 @@ export interface DailyLog {
   symptoms: string;
   mood: string;
   exercise: string;
+  bowelMovement: string;
+  nightSleep: string;
   notes: string;
   reportSent: boolean;
 }
@@ -77,11 +79,12 @@ export interface ActionPlan {
   clientId: string;
   clientName: string;
   title: string;
+  programGoal: string;
   startDate: Date;
   nextConsultation: Date;
   status: 'active' | 'completed' | 'archived';
   tasks: ActionPlanTask[];
-  plannedMeals: PlannedMeal[];
+  planDays: PlanDay[];
   startWeight: number | null;
   targetWeight: number | null;
   createdAt: Date;
@@ -117,4 +120,23 @@ export interface PlannedMeal {
   totalProtein: number;
   totalFat: number;
   totalCarbs: number;
+}
+
+export type MealSlot = 'Breakfast' | 'Snack' | 'Lunch' | 'Afternoon Snack' | 'Dinner';
+
+export interface MealItem {
+  id: string;
+  slot: MealSlot;
+  name: string;
+  ingredients: PlannedMealIngredient[];
+  totalCalories: number;
+  totalProtein: number;
+  totalFat: number;
+  totalCarbs: number;
+}
+
+export interface PlanDay {
+  day: number;
+  date: string;
+  meals: MealItem[];
 }

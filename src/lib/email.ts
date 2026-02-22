@@ -73,6 +73,20 @@ export function buildReportEmail(
         </p>
         ` : ''}
 
+        ${log.bowelMovement ? `
+<h3 style="color:#111827;margin:20px 0 8px;">🚽 Bowel Movement</h3>
+<p style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:12px;color:#374151;margin:0 0 16px;">
+  ${log.bowelMovement}
+</p>
+` : ''}
+
+${log.nightSleep ? `
+<h3 style="color:#111827;margin:20px 0 8px;">😴 Night Sleep</h3>
+<p style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:12px;color:#374151;margin:0 0 16px;">
+  ${log.nightSleep}
+</p>
+` : ''}
+
         <!-- Notes -->
         ${log.notes ? `
         <h3 style="color:#111827;margin:20px 0 8px;">📝 Additional Notes</h3>
