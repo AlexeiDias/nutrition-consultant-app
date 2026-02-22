@@ -242,9 +242,10 @@ export default function ActionPlanDetailPage() {
           )}
 
           {/* Progress Bar */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-sm text-gray-600">Overall Progress</p>
+          {/* Progress Bar */}
+<div className="mt-4 no-print">
+  <div className="flex items-center justify-between mb-1">
+    <p className="text-sm text-gray-600">Overall Progress</p>
               <p className="text-sm font-semibold text-green-600">{progress}%</p>
             </div>
             <div className="bg-gray-100 rounded-full h-3">
