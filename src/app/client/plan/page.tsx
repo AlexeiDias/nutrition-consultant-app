@@ -1,5 +1,3 @@
-// Client-side page to view the client's current action plan, with tabs for active plan and history, and interactive task completion toggles
-//src/app/client/plan/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -32,37 +30,69 @@ export default function ClientPlanPage() {
   const [clientId, setClientId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+  const [togglingTask, setTogglingTask] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile?.uid) return;
     const fetchPlans = async () => {
-      const q = query(collection(db, 'clients'), where('clientUserId', '==', profile.uid));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const cId = snap.docs[0].id;
-        setClientId(cId);
-        const plansData = await getActionPlansByClient(cId);
-        setPlans(plansData);
+      try {
+        // Step 1: Find the client document using the Firebase Auth UID
+        const q = query(
+          collection(db, 'clients'),
+          where('clientUserId', '==', profile.uid)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const cId = snap.docs[0].id;
+          setClientId(cId);
+          // Step 2: Fetch action plans using the Firestore client document ID
+          const plansData = await getActionPlansByClient(cId);
+          setPlans(plansData);
+        }
+      } catch (err) {
+        console.error('Error fetching plans:', err);
+        toast.error('Failed to load your plan');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchPlans();
   }, [profile]);
 
   const handleToggleTask = async (plan: ActionPlan, taskId: string) => {
-    const updatedTasks = plan.tasks.map((t) =>
-      t.id === taskId
-        ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date() : null }
-        : t
-    );
-    await updateActionPlan(plan.id, { tasks: updatedTasks });
-    setPlans((prev) =>
-      prev.map((p) => p.id === plan.id ? { ...p, tasks: updatedTasks } : p)
-    );
-    toast.success(updatedTasks.find(t => t.id === taskId)?.completed ? '✅ Task completed!' : 'Task unmarked');
+    setTogglingTask(taskId);
+    try {
+      const updatedTasks = plan.tasks.map((t) =>
+        t.id === taskId
+          ? {
+              ...t,
+              completed: !t.completed,
+              completedAt: !t.completed ? new Date() : null,
+            }
+          : t
+      );
+      await updateActionPlan(plan.id, { tasks: updatedTasks });
+      setPlans((prev) =>
+        prev.map((p) =>
+          p.id === plan.id ? { ...p, tasks: updatedTasks } : p
+        )
+      );
+      const task = updatedTasks.find((t) => t.id === taskId);
+      toast.success(task?.completed ? '✅ Task completed!' : 'Task unmarked');
+    } catch (err) {
+      toast.error('Failed to update task');
+    } finally {
+      setTogglingTask(null);
+    }
   };
 
-  if (loading) return <div className="flex justify-center py-12"><LoadingSpinner /></div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   const activePlan = plans.find((p) => p.status === 'active');
   const historyPlans = plans.filter((p) => p.status !== 'active');
@@ -72,11 +102,13 @@ export default function ClientPlanPage() {
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">My Action Plan</h1>
-        <p className="text-gray-500 mt-1">Follow your consultant's recommendations</p>
+        <p className="text-gray-500 mt-1">
+          Follow your consultant's recommendations
+        </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6 no-print">
         {(['active', 'history'] as const).map((tab) => (
           <button
             key={tab}
@@ -100,9 +132,12 @@ export default function ClientPlanPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">{activePlan.title}</h2>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {activePlan.title}
+                  </h2>
                   <p className="text-gray-500 text-sm mt-1">
-                    Started {format(
+                    Started{' '}
+                    {format(
                       (activePlan.startDate as any)?.seconds
                         ? new Date((activePlan.startDate as any).seconds * 1000)
                         : new Date(activePlan.startDate),
@@ -112,78 +147,114 @@ export default function ClientPlanPage() {
                 </div>
                 <button
                   onClick={() => window.print()}
-                  className="text-sm px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+                  className="no-print text-sm px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
                 >
                   🖨️ Print
                 </button>
               </div>
 
               {/* Countdown */}
-              {activePlan.nextConsultation && (() => {
-                const nextDate = (activePlan.nextConsultation as any)?.seconds
-                  ? new Date((activePlan.nextConsultation as any).seconds * 1000)
-                  : new Date(activePlan.nextConsultation);
-                const daysLeft = differenceInDays(nextDate, new Date());
-                return (
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4 flex items-center gap-3">
-                    <span className="text-2xl">📅</span>
-                    <div>
-                      <p className="font-semibold text-orange-800">
-                        {daysLeft > 0 ? `${daysLeft} days` : 'Today!'} until next consultation
-                      </p>
-                      <p className="text-orange-600 text-sm">
-                        {format(nextDate, 'EEEE, MMMM d yyyy')}
-                      </p>
+              {activePlan.nextConsultation &&
+                (() => {
+                  const nextDate = (activePlan.nextConsultation as any)?.seconds
+                    ? new Date(
+                        (activePlan.nextConsultation as any).seconds * 1000
+                      )
+                    : new Date(activePlan.nextConsultation);
+                  const daysLeft = differenceInDays(nextDate, new Date());
+                  return (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4 flex items-center gap-3">
+                      <span className="text-2xl">📅</span>
+                      <div>
+                        <p className="font-semibold text-orange-800">
+                          {daysLeft > 0
+                            ? `${daysLeft} days`
+                            : 'Today!'}{' '}
+                          until next consultation
+                        </p>
+                        <p className="text-orange-600 text-sm">
+                          {format(nextDate, 'EEEE, MMMM d yyyy')}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
 
-              {/* Progress */}
-              <div>
+              {/* Progress Bar */}
+              <div className="no-print">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-gray-700">Plan Progress</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    Plan Progress
+                  </p>
                   <p className="text-sm font-bold text-green-600">
                     {activePlan.tasks.length > 0
-                      ? Math.round((activePlan.tasks.filter((t) => t.completed).length / activePlan.tasks.length) * 100)
-                      : 0}%
+                      ? Math.round(
+                          (activePlan.tasks.filter((t) => t.completed).length /
+                            activePlan.tasks.length) *
+                            100
+                        )
+                      : 0}
+                    %
                   </p>
                 </div>
                 <div className="bg-gray-100 rounded-full h-4">
                   <div
-                    className="bg-green-500 h-4 rounded-full transition-all duration-700 flex items-center justify-end pr-2"
+                    className="bg-green-500 h-4 rounded-full transition-all duration-700"
                     style={{
-                      width: `${activePlan.tasks.length > 0
-                        ? Math.round((activePlan.tasks.filter((t) => t.completed).length / activePlan.tasks.length) * 100)
-                        : 0}%`,
+                      width: `${
+                        activePlan.tasks.length > 0
+                          ? Math.round(
+                              (activePlan.tasks.filter((t) => t.completed)
+                                .length /
+                                activePlan.tasks.length) *
+                                100
+                            )
+                          : 0
+                      }%`,
                     }}
                   />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  {activePlan.tasks.filter((t) => t.completed).length} of {activePlan.tasks.length} tasks completed
+                  {activePlan.tasks.filter((t) => t.completed).length} of{' '}
+                  {activePlan.tasks.length} tasks completed
                 </p>
               </div>
             </div>
 
             {/* Tasks by Category */}
             {categories.map((category) => {
-              const categoryTasks = activePlan.tasks.filter((t) => t.category === category);
+              const categoryTasks = activePlan.tasks.filter(
+                (t) => t.category === category
+              );
               if (categoryTasks.length === 0) return null;
               const completed = categoryTasks.filter((t) => t.completed).length;
+
               return (
-                <div key={category} className="bg-white rounded-xl border border-gray-200 p-6">
+                <div
+                  key={category}
+                  className="bg-white rounded-xl border border-gray-200 p-6"
+                >
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold text-gray-900">
-                      {categoryIcons[category]} {category.charAt(0).toUpperCase() + category.slice(1)}
+                      {categoryIcons[category]}{' '}
+                      {category.charAt(0).toUpperCase() + category.slice(1)}
                     </h3>
-                    <span className="text-xs text-gray-500">{completed}/{categoryTasks.length}</span>
+                    <span className="text-xs text-gray-500 no-print">
+                      {completed}/{categoryTasks.length}
+                    </span>
                   </div>
                   <div className="flex flex-col gap-2">
                     {categoryTasks.map((task) => (
                       <div
                         key={task.id}
-                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${categoryColors[category]} ${task.completed ? 'opacity-60' : ''}`}
-                        onClick={() => handleToggleTask(activePlan, task.id)}
+                        className={`flex items-start gap-3 p-3 rounded-lg border transition-all
+                          ${categoryColors[category]}
+                          ${task.completed ? 'opacity-60' : ''}
+                          ${togglingTask === task.id ? 'animate-pulse' : 'cursor-pointer'}`}
+                        onClick={() =>
+                          togglingTask !== task.id &&
+                          handleToggleTask(activePlan, task.id)
+                        }
                       >
                         <input
                           type="checkbox"
@@ -192,11 +263,17 @@ export default function ClientPlanPage() {
                           className="mt-0.5 w-4 h-4 accent-green-600"
                         />
                         <div>
-                          <p className={`text-sm font-medium ${task.completed ? 'line-through' : ''}`}>
+                          <p
+                            className={`text-sm font-medium ${
+                              task.completed ? 'line-through' : ''
+                            }`}
+                          >
                             {task.title}
                           </p>
                           {task.description && (
-                            <p className="text-xs opacity-70 mt-0.5">{task.description}</p>
+                            <p className="text-xs opacity-70 mt-0.5">
+                              {task.description}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -224,30 +301,47 @@ export default function ClientPlanPage() {
             </div>
           ) : (
             historyPlans.map((plan) => {
-              const progress = plan.tasks.length > 0
-                ? Math.round((plan.tasks.filter((t) => t.completed).length / plan.tasks.length) * 100)
-                : 0;
+              const progress =
+                plan.tasks.length > 0
+                  ? Math.round(
+                      (plan.tasks.filter((t) => t.completed).length /
+                        plan.tasks.length) *
+                        100
+                    )
+                  : 0;
               return (
-                <div key={plan.id} className="bg-white rounded-xl border border-gray-200 p-5">
+                <div
+                  key={plan.id}
+                  className="bg-white rounded-xl border border-gray-200 p-5"
+                >
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <h3 className="font-semibold text-gray-900">{plan.title}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        plan.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
-                      }`}>
+                      <h3 className="font-semibold text-gray-900">
+                        {plan.title}
+                      </h3>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          plan.status === 'completed'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
                         {plan.status}
                       </span>
                     </div>
-                    <p className="text-2xl font-bold text-green-600">{progress}%</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {progress}%
+                    </p>
                   </div>
                   <div className="bg-gray-100 rounded-full h-2">
                     <div
-                      className="bg-green-400 h-2 rounded-full"
+                      className="bg-green-400 h-2 rounded-full transition-all"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    {plan.tasks.filter((t) => t.completed).length}/{plan.tasks.length} tasks completed
+                    {plan.tasks.filter((t) => t.completed).length}/
+                    {plan.tasks.length} tasks completed
                   </p>
                 </div>
               );
@@ -258,9 +352,17 @@ export default function ClientPlanPage() {
 
       <style jsx global>{`
         @media print {
-          aside, nav, button, .no-print { display: none !important; }
-          main { padding: 0 !important; }
-          body { font-size: 12px; }
+          aside,
+          nav,
+          .no-print {
+            display: none !important;
+          }
+          main {
+            padding: 0 !important;
+          }
+          body {
+            font-size: 12px;
+          }
         }
       `}</style>
     </div>
