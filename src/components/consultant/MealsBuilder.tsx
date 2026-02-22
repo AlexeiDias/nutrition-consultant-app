@@ -1,12 +1,10 @@
-// This component allows consultants to generate and customize meal plans for their clients. It integrates with an AI API to create meal plans based on the client's program goal and the number of days until the next consultation. Consultants can also edit individual meals and their ingredients using an inline calorie calculator.
-//src/components/consultant/MealsBuilder.tsx
 'use client';
 
 import { useState } from 'react';
 import { PlanDay, MealItem, MealSlot, PlannedMealIngredient } from '@/lib/types';
 import CalorieCalculator from './CalorieCalculator';
 import Button from '@/components/ui/Button';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import toast from 'react-hot-toast';
 
@@ -56,7 +54,6 @@ export default function MealsBuilder({
     mealId: string;
   } | null>(null);
 
-  // Calculate number of days
   const numberOfDays =
     startDate && nextConsultation
       ? Math.max(
@@ -80,9 +77,7 @@ export default function MealsBuilder({
     }
     if (
       planDays.length > 0 &&
-      !confirm(
-        'This will replace the current meal plan. Continue?'
-      )
+      !confirm('This will replace the current meal plan. Continue?')
     )
       return;
 
@@ -97,12 +92,9 @@ export default function MealsBuilder({
       if (!res.ok) throw new Error(data.error);
       onChange(data.planDays);
       setExpandedDay(0);
-      toast.success(
-        `✨ ${numberOfDays}-day meal plan generated!`
-      );
+      toast.success(`✨ ${numberOfDays}-day meal plan generated!`);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Generation failed';
+      const message = err instanceof Error ? err.message : 'Generation failed';
       toast.error(message);
     } finally {
       setGenerating(false);
@@ -116,9 +108,6 @@ export default function MealsBuilder({
     mealName: string
   ) => {
     const totalCalories = ingredients.reduce((s, i) => s + i.calories, 0);
-    const totalProtein = ingredients.reduce((s, i) => s + i.protein, 0);
-    const totalFat = ingredients.reduce((s, i) => s + i.fat, 0);
-    const totalCarbs = ingredients.reduce((s, i) => s + i.carbs, 0);
 
     const updated = planDays.map((day, dIdx) =>
       dIdx === dayIndex
@@ -131,9 +120,9 @@ export default function MealsBuilder({
                     name: mealName || m.name,
                     ingredients,
                     totalCalories,
-                    totalProtein,
-                    totalFat,
-                    totalCarbs,
+                    totalProtein: m.totalProtein,
+                    totalFat: m.totalFat,
+                    totalCarbs: m.totalCarbs,
                   }
                 : m
             ),
@@ -180,7 +169,8 @@ export default function MealsBuilder({
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-green-700">
-                AI is creating your {numberOfDays}-day meal plan...
+                AI is creating your {numberOfDays}-day meal plan. This may take
+                a minute...
               </p>
             </div>
           </div>
@@ -220,8 +210,8 @@ export default function MealsBuilder({
                         Day {day.day}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {format(dayDate, 'EEEE, MMM d')} ·{' '}
-                        {dayTotalCals} kcal total
+                        {format(dayDate, 'EEEE, MMM d')} · {dayTotalCals} kcal
+                        total
                       </p>
                     </div>
                   </div>
@@ -273,15 +263,21 @@ export default function MealsBuilder({
                             <span className="text-xs bg-white px-2 py-0.5 rounded-full border">
                               🔥 {meal.totalCalories} kcal
                             </span>
-                            <span className="text-xs bg-white px-2 py-0.5 rounded-full border">
-                              💪 {meal.totalProtein}g P
-                            </span>
-                            <span className="text-xs bg-white px-2 py-0.5 rounded-full border">
-                              🧈 {meal.totalFat}g F
-                            </span>
-                            <span className="text-xs bg-white px-2 py-0.5 rounded-full border">
-                              🌾 {meal.totalCarbs}g C
-                            </span>
+                            {meal.totalProtein > 0 && (
+                              <span className="text-xs bg-white px-2 py-0.5 rounded-full border">
+                                💪 {meal.totalProtein}g P
+                              </span>
+                            )}
+                            {meal.totalFat > 0 && (
+                              <span className="text-xs bg-white px-2 py-0.5 rounded-full border">
+                                🧈 {meal.totalFat}g F
+                              </span>
+                            )}
+                            {meal.totalCarbs > 0 && (
+                              <span className="text-xs bg-white px-2 py-0.5 rounded-full border">
+                                🌾 {meal.totalCarbs}g C
+                              </span>
+                            )}
                           </div>
 
                           {/* Ingredients */}
