@@ -123,8 +123,8 @@ export default function ClientDashboard() {
                   <div>
                     <p className="font-medium text-gray-900">{format(logDate, 'EEEE, MMM d')}</p>
                     <p className="text-sm text-gray-500">
-                      {log.meals?.length ?? 0} meals · {log.waterIntake}L water · {log.weight}kg
-                    </p>
+  {log.waterIntake}L water · {log.mood || '—'} · {log.weight ? `${log.weight}kg` : 'no weight'}
+</p>
                   </div>
                   <span className={`text-xs px-2 py-1 rounded-full ${log.reportSent ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                     {log.reportSent ? '📬 Sent' : '📝 Draft'}

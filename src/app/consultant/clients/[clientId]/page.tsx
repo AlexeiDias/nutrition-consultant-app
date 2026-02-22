@@ -286,8 +286,7 @@ const handleSave = async () => {
                         {format(logDate, 'EEE, MMM d')}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {log.meals?.length ?? 0} meals · {log.weight}kg · {log.mood}
-                      </p>
+{log.waterIntake}L water · {log.weight ? `${log.weight}kg` : 'no weight'} · {log.mood || '—'}                      </p>
                     </div>
                     <span className={`text-xs px-2 py-1 rounded-full ${log.reportSent ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                       {log.reportSent ? '📬 Sent' : '📝 Draft'}

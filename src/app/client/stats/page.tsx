@@ -46,8 +46,7 @@ export default function StatsPage() {
       date: format(date, 'MMM d'),
       weight: log.weight || null,
       water: log.waterIntake || null,
-      calories: log.meals?.reduce((sum, m) => sum + (m.calories || 0), 0) || null,
-      mood: log.mood === 'Great' ? 5 : log.mood === 'Good' ? 4 :
+calories: null,      mood: log.mood === 'Great' ? 5 : log.mood === 'Good' ? 4 :
             log.mood === 'Okay' ? 3 : log.mood === 'Low' ? 2 :
             log.mood === 'Stressed' ? 1 : null,
     };
@@ -55,7 +54,7 @@ export default function StatsPage() {
 
   const avgWeight = logs.filter(l => l.weight).reduce((sum, l) => sum + l.weight, 0) / (logs.filter(l => l.weight).length || 1);
   const avgWater = logs.filter(l => l.waterIntake).reduce((sum, l) => sum + l.waterIntake, 0) / (logs.filter(l => l.waterIntake).length || 1);
-  const avgCalories = logs.reduce((sum, l) => sum + (l.meals?.reduce((s, m) => s + (m.calories || 0), 0) || 0), 0) / (logs.length || 1);
+const avgCalories = 0;
 
   if (logs.length === 0) {
     return (
@@ -124,19 +123,7 @@ export default function StatsPage() {
         </ResponsiveContainer>
       </div>
 
-      {/* Calories Chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <h2 className="font-semibold text-gray-900 mb-4">🔥 Daily Calories</h2>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#6b7280' }} />
-            <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} />
-            <Tooltip />
-            <Bar dataKey="calories" fill="#16a34a" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+     
 
       {/* Mood Chart */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">

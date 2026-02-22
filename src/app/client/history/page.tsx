@@ -55,7 +55,8 @@ export default function HistoryPage() {
         prev.map((l) => (l.id === log.id ? { ...l, reportSent: true } : l))
       );
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to send report';
+      const message =
+        err instanceof Error ? err.message : 'Failed to send report';
       toast.error(message);
     } finally {
       setSending(null);
@@ -91,8 +92,6 @@ export default function HistoryPage() {
             const logDate = (log.date as any)?.seconds
               ? new Date((log.date as any).seconds * 1000)
               : new Date(log.date);
-            const totalCalories =
-              log.meals?.reduce((sum, m) => sum + (m.calories || 0), 0) ?? 0;
 
             return (
               <div
@@ -105,78 +104,85 @@ export default function HistoryPage() {
                       {format(logDate, 'EEEE, MMMM d yyyy')}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {log.meals?.length ?? 0} meals · {totalCalories} kcal total
+                      {log.waterIntake}L water · {log.mood || '—'}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-  {log.reportSent && (
-    <span className="text-xs px-3 py-1 rounded-full font-medium bg-green-100 text-green-700">
-      📬 Sent
-    </span>
-  )}
-  <Button
-    variant={log.reportSent ? 'secondary' : 'primary'}
-    loading={sending === log.id}
-    onClick={() => handleSendReport(log)}
-    className="text-xs px-3 py-1"
-  >
-    {log.reportSent ? '🔄 Resend' : '📤 Send Report'}
-  </Button>
-</div>
+                    {log.reportSent && (
+                      <span className="text-xs px-3 py-1 rounded-full font-medium bg-green-100 text-green-700">
+                        📬 Sent
+                      </span>
+                    )}
+                    <Button
+                      variant={log.reportSent ? 'secondary' : 'primary'}
+                      loading={sending === log.id}
+                      onClick={() => handleSendReport(log)}
+                      className="text-xs px-3 py-1"
+                    >
+                      {log.reportSent ? '🔄 Resend' : '📤 Send Report'}
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                {/* Vitals */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
                   <div className="bg-blue-50 rounded-lg p-3 text-center">
-                    <p className="text-lg font-bold text-blue-700">{log.waterIntake}L</p>
+                    <p className="text-lg font-bold text-blue-700">
+                      {log.waterIntake}L
+                    </p>
                     <p className="text-xs text-blue-500">Water</p>
                   </div>
                   <div className="bg-purple-50 rounded-lg p-3 text-center">
-                    <p className="text-lg font-bold text-purple-700">{log.weight}kg</p>
+                    <p className="text-lg font-bold text-purple-700">
+                      {log.weight ? `${log.weight}kg` : '—'}
+                    </p>
                     <p className="text-xs text-purple-500">Weight</p>
                   </div>
                   <div className="bg-yellow-50 rounded-lg p-3 text-center">
-                    <p className="text-lg font-bold text-yellow-700">{log.mood || '—'}</p>
+                    <p className="text-lg font-bold text-yellow-700">
+                      {log.mood || '—'}
+                    </p>
                     <p className="text-xs text-yellow-500">Mood</p>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-3 text-center">
-                    <p className="text-lg font-bold text-green-700">{totalCalories}</p>
-                    <p className="text-xs text-green-500">Calories</p>
                   </div>
                 </div>
 
-                {log.meals?.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                      Meals
+                {/* Meals Experience */}
+                {log.mealsExperience && (
+                  <div className="mb-3">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      🍽️ Meals Experience
                     </p>
-                    <div className="flex flex-col gap-1">
-                      {log.meals.map((meal, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2"
-                        >
-                          <span>
-                            {meal.time} — {meal.description}
-                          </span>
-                          <span className="text-gray-400">{meal.calories} kcal</span>
-                        </div>
-                      ))}
-                    </div>
+                    <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                      {log.mealsExperience}
+                    </p>
                   </div>
                 )}
 
+                {/* Exercise */}
                 {log.exercise && (
-                  <p className="mt-3 text-sm text-gray-600">
-                    🏃 {log.exercise}
-                  </p>
+                  <div className="mb-3">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      🏃 Exercise
+                    </p>
+                    <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                      {log.exercise}
+                    </p>
+                  </div>
                 )}
 
+                {/* Symptoms */}
                 {log.symptoms && (
-                  <p className="mt-2 text-sm text-gray-600">
-                    🩺 {log.symptoms}
-                  </p>
+                  <div className="mb-3">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                      🩺 Symptoms
+                    </p>
+                    <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                      {log.symptoms}
+                    </p>
+                  </div>
                 )}
 
+                {/* Notes */}
                 {log.notes && (
                   <p className="mt-2 text-sm text-gray-500 italic">
                     📝 {log.notes}
