@@ -50,8 +50,9 @@ export default function ActionPlanDetailPage() {
   });
 
   useEffect(() => {
-    if (!planId) return;
-    getActionPlanById(planId).then((data) => {
+  if (!planId) return;
+  getActionPlanById(planId)
+    .then((data) => {
       if (data) {
         setPlan(data);
         const startDate = (data.startDate as any)?.seconds
@@ -67,9 +68,15 @@ export default function ActionPlanDetailPage() {
           status: data.status,
         });
       }
+    })
+    .catch((err) => {
+      console.error('Error loading plan:', err);
+      toast.error('Failed to load plan');
+    })
+    .finally(() => {
       setLoading(false);
     });
-  }, [planId]);
+}, [planId]);
 
   const handleSavePlan = async () => {
     if (!plan) return;
