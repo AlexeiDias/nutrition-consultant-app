@@ -1,5 +1,3 @@
-// A comprehensive calorie calculator component for consultants to search foods, build meals, and calculate macros, with the ability to save meals to a client's action plan. Utilizes OpenFoodFacts API for food data and provides a user-friendly interface for meal planning.
-//src/components/consultant/CalorieCalculator.tsx
 'use client';
 
 import { useState } from 'react';
@@ -37,17 +35,25 @@ export default function CalorieCalculator({
   const [mealName, setMealName] = useState(initialMealName);
   const [servingInputs, setServingInputs] = useState<Record<string, number>>({});
 
+  const calcNutrient = (base: number, quantity: number) =>
+    Math.round((base * quantity) / 100);
+
   const searchFood = async () => {
     if (!query.trim()) return;
     setSearching(true);
     setResults([]);
     try {
       const res = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=10&fields=id,product_name,nutriments`
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
+          query
+        )}&search_simple=1&action=process&json=1&page_size=10&fields=id,product_name,nutriments`
       );
       const data = await res.json();
       const foods: FoodResult[] = (data.products ?? [])
-        .filter((p: any) => p.product_name && p.nutriments?.['energy-kcal_100g'])
+        .filter(
+          (p: any) =>
+            p.product_name && p.nutriments?.['energy-kcal_100g']
+        )
         .map((p: any) => ({
           id: p.id ?? uuidv4(),
           name: p.product_name,
@@ -57,16 +63,14 @@ export default function CalorieCalculator({
           carbs: Math.round(p.nutriments['carbohydrates_100g'] ?? 0),
         }));
       setResults(foods);
-      if (foods.length === 0) toast.error('No results found. Try a different search.');
+      if (foods.length === 0)
+        toast.error('No results found. Try a different search.');
     } catch {
       toast.error('Search failed. Check your connection.');
     } finally {
       setSearching(false);
     }
   };
-
-  const calcNutrient = (base: number, quantity: number) =>
-    Math.round((base * quantity) / 100);
 
   const handleAddIngredient = (food: FoodResult) => {
     const quantity = servingInputs[food.id] ?? 100;
@@ -75,9 +79,6 @@ export default function CalorieCalculator({
       name: food.name,
       quantity,
       calories: calcNutrient(food.calories, quantity),
-      protein: calcNutrient(food.protein, quantity),
-      fat: calcNutrient(food.fat, quantity),
-      carbs: calcNutrient(food.carbs, quantity),
     };
     setIngredients((prev) => [...prev, ingredient]);
     toast.success(`${food.name} added`);
@@ -89,30 +90,19 @@ export default function CalorieCalculator({
 
   const handleQuantityChange = (id: string, quantity: number) => {
     setIngredients((prev) =>
-      prev.map((i) =>
-        i.id === id
-          ? {
-              ...i,
-              quantity,
-              calories: calcNutrient(i.calories / (i.quantity / 100), quantity),
-              protein: calcNutrient(i.protein / (i.quantity / 100), quantity),
-              fat: calcNutrient(i.fat / (i.quantity / 100), quantity),
-              carbs: calcNutrient(i.carbs / (i.quantity / 100), quantity),
-            }
-          : i
-      )
+      prev.map((i) => {
+        if (i.id !== id) return i;
+        const caloriesPer1g = i.calories / (i.quantity || 1);
+        return {
+          ...i,
+          quantity,
+          calories: Math.round(caloriesPer1g * quantity),
+        };
+      })
     );
   };
 
-  const totals = ingredients.reduce(
-    (acc, ing) => ({
-      calories: acc.calories + ing.calories,
-      protein: acc.protein + ing.protein,
-      fat: acc.fat + ing.fat,
-      carbs: acc.carbs + ing.carbs,
-    }),
-    { calories: 0, protein: 0, fat: 0, carbs: 0 }
-  );
+  const totalCalories = ingredients.reduce((acc, ing) => acc + ing.calories, 0);
 
   const handleSaveMeal = () => {
     if (!mealName.trim()) {
@@ -127,10 +117,10 @@ export default function CalorieCalculator({
       id: uuidv4(),
       name: mealName,
       ingredients,
-      totalCalories: totals.calories,
-      totalProtein: totals.protein,
-      totalFat: totals.fat,
-      totalCarbs: totals.carbs,
+      totalCalories,
+      totalProtein: 0,
+      totalFat: 0,
+      totalCarbs: 0,
     };
     onSaveMeal?.(meal);
     setIngredients([]);
@@ -142,8 +132,9 @@ export default function CalorieCalculator({
 
   return (
     <div className={`flex flex-col gap-4 ${compact ? '' : 'max-w-3xl'}`}>
+
       {/* Search */}
-      <div className={`bg-gray-50 rounded-xl border border-gray-200 p-4`}>
+      <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
         <h4 className="font-medium text-gray-800 mb-3">🔍 Search Food</h4>
         <div className="flex gap-2">
           <input
@@ -172,7 +163,7 @@ export default function CalorieCalculator({
                 </p>
                 <div className="flex flex-wrap gap-1 mb-2">
                   <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
-                    🔥 {food.calories} kcal
+                    🔥 {food.calories} kcal / 100g
                   </span>
                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
                     💪 {food.protein}g protein
@@ -183,7 +174,6 @@ export default function CalorieCalculator({
                   <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
                     🌾 {food.carbs}g carbs
                   </span>
-                  <span className="text-xs text-gray-400">per 100g</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <input
@@ -237,7 +227,7 @@ export default function CalorieCalculator({
                     {ing.name}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {ing.calories} kcal · {ing.protein}g P · {ing.fat}g F · {ing.carbs}g C
+                    {ing.calories} kcal
                   </p>
                 </div>
                 <input
@@ -260,27 +250,10 @@ export default function CalorieCalculator({
             ))}
           </div>
 
-          {/* Totals */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
-            <p className="text-xs font-semibold text-green-800 mb-2">Meal Totals</p>
-            <div className="grid grid-cols-4 gap-2 text-center">
-              <div>
-                <p className="text-lg font-bold text-orange-600">{totals.calories}</p>
-                <p className="text-xs text-gray-500">kcal</p>
-              </div>
-              <div>
-                <p className="text-lg font-bold text-blue-600">{totals.protein}g</p>
-                <p className="text-xs text-gray-500">Protein</p>
-              </div>
-              <div>
-                <p className="text-lg font-bold text-yellow-600">{totals.fat}g</p>
-                <p className="text-xs text-gray-500">Fat</p>
-              </div>
-              <div>
-                <p className="text-lg font-bold text-green-600">{totals.carbs}g</p>
-                <p className="text-xs text-gray-500">Carbs</p>
-              </div>
-            </div>
+          {/* Total Calories */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3 text-center">
+            <p className="text-2xl font-bold text-orange-600">{totalCalories}</p>
+            <p className="text-xs text-gray-500">Total kcal</p>
           </div>
 
           {onSaveMeal && (
