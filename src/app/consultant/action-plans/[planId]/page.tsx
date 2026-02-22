@@ -16,14 +16,12 @@ import toast from 'react-hot-toast';
 import CalorieCalculator from '@/components/consultant/CalorieCalculator';
 
 const categoryColors = {
-  nutrition: 'bg-green-50 border-green-200 text-green-800',
   exercise: 'bg-blue-50 border-blue-200 text-blue-800',
   hydration: 'bg-cyan-50 border-cyan-200 text-cyan-800',
   lifestyle: 'bg-purple-50 border-purple-200 text-purple-800',
 };
 
 const categoryIcons = {
-  nutrition: '🥗',
   exercise: '🏃',
   hydration: '💧',
   lifestyle: '🌿',
@@ -48,7 +46,7 @@ export default function ActionPlanDetailPage() {
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
-    category: 'nutrition' as ActionPlanTask['category'],
+    category: 'exercise' as ActionPlanTask['category'],
   });
 
   useEffect(() => {
@@ -116,8 +114,7 @@ export default function ActionPlanDetailPage() {
     const updatedTasks = [...plan.tasks, task];
     await updateActionPlan(planId, { tasks: updatedTasks });
     setPlan((p) => p ? { ...p, tasks: updatedTasks } : p);
-    setNewTask({ title: '', description: '', category: 'nutrition' });
-    toast.success('Task added!');
+setNewTask({ title: '', description: '', category: 'exercise' });    toast.success('Task added!');
   };
 
   const handleRemoveTask = async (taskId: string) => {
@@ -160,7 +157,7 @@ export default function ActionPlanDetailPage() {
     ? new Date((plan.nextConsultation as any).seconds * 1000)
     : new Date(plan.nextConsultation);
 
-  const categories = ['nutrition', 'exercise', 'hydration', 'lifestyle'] as const;
+  const categories = ['exercise', 'hydration', 'lifestyle'] as const;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -325,7 +322,6 @@ export default function ActionPlanDetailPage() {
                 <select value={newTask.category}
                   onChange={(e) => setNewTask((p) => ({ ...p, category: e.target.value as any }))}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500">
-                  <option value="nutrition">🥗 Nutrition</option>
                   <option value="exercise">🏃 Exercise</option>
                   <option value="hydration">💧 Hydration</option>
                   <option value="lifestyle">🌿 Lifestyle</option>
