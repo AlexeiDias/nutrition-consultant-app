@@ -21,54 +21,75 @@ export default function ConsultantProfilePage() {
   const [editing, setEditing] = useState(false);
 
   const [form, setForm] = useState({
-    name: '',
-    phone: '',
-    bio: '',
-    credentials: '',
-    specializations: '',
-    isPublic: true,
-  });
+  name: '',
+  email: '',
+  phone: '',
+  bio: '',
+  credentials: '',
+  specializations: '',
+  isPublic: true,
+});
 
   useEffect(() => {
     if (!profile?.uid) return;
     const fetch = async () => {
       const extended = await getConsultantProfile(profile.uid);
       setForm({
-        name: profile.name ?? '',
-        phone: extended?.phone ?? '',
-        bio: extended?.bio ?? '',
-        credentials: extended?.credentials ?? '',
-        specializations: extended?.specializations?.join(', ') ?? '',
-        isPublic: extended?.isPublic ?? true,
-      });
+  name: profile.name ?? '',
+  email: profile.email ?? '',
+  phone: extended?.phone ?? '',
+  bio: extended?.bio ?? '',
+  credentials: extended?.credentials ?? '',
+  specializations: extended?.specializations?.join(', ') ?? '',
+  isPublic: extended?.isPublic ?? true,
+});
       setLoading(false);
     };
     fetch();
   }, [profile]);
 
   const handleSave = async () => {
-    if (!profile?.uid) return;
-    setSaving(true);
-    try {
-      await updateUserProfile(profile.uid, { name: form.name });
-      await upsertConsultantProfile(profile.uid, {
-        phone: form.phone,
-        bio: form.bio,
-        credentials: form.credentials,
-        specializations: form.specializations
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-        isPublic: form.isPublic,
+  if (!profile?.uid) return;
+  setSaving(true);
+  try {
+    // If email changed, update Firebase Auth via API
+    if (user?.email !== form.email) {
+      const res = await fetch('/api/update-consultant-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uid: profile.uid,
+          newEmail: form.email,
+        }),
       });
-      toast.success('Profile updated!');
-      setEditing(false);
-    } catch (err) {
-      toast.error('Failed to save profile');
-    } finally {
-      setSaving(false);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
     }
-  };
+
+    // Update name in users collection
+    await updateUserProfile(profile.uid, { name: form.name });
+
+    // Update extended profile
+    await upsertConsultantProfile(profile.uid, {
+      phone: form.phone,
+      bio: form.bio,
+      credentials: form.credentials,
+      specializations: form.specializations
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      isPublic: form.isPublic,
+    });
+
+    toast.success('Profile updated!');
+    setEditing(false);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to save profile';
+    toast.error(message);
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (loading) return <div className="text-gray-500">Loading...</div>;
 
@@ -120,15 +141,21 @@ export default function ConsultantProfilePage() {
                 {editing ? (
                   <>
                     <Input
-                      label="Full Name"
-                      value={form.name}
-                      onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                    />
-                    <Input
-                      label="Phone"
-                      value={form.phone}
-                      onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                    />
+  label="Full Name"
+  value={form.name}
+  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+/>
+<Input
+  label="Email"
+  type="email"
+  value={form.email}
+  onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+/>
+<Input
+  label="Phone"
+  value={form.phone}
+  onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+/>
                   </>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
