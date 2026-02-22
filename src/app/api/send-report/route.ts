@@ -45,12 +45,17 @@ export async function POST(req: NextRequest) {
     // Build and send email
     const { subject, html } = buildReportEmail(client.name, consultant.name, log);
 
-    await transporter.sendMail({
-      from: `"Nutrition App" <${process.env.GMAIL_USER}>`,
-      to: consultant.email,
-      subject,
-      html,
-    });
+    try {
+  await transporter.sendMail({
+    from: `"Nutrition App" <${process.env.GMAIL_USER}>`,
+    to: consultant.email,
+    subject,
+    html,
+  });
+} catch (mailErr) {
+  console.error('Nodemailer error:', mailErr);
+  return NextResponse.json({ error: 'Email failed to send' }, { status: 500 });
+}
 
     // Mark log as sent
     await adminDb.collection('dailyLogs').doc(logId).update({
