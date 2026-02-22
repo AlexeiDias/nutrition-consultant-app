@@ -36,25 +36,25 @@ export function buildReportEmail(
         <p style="color:#374151;">Hi ${consultantName},</p>
         <p style="color:#374151;">${clientName} has submitted their daily nutrition report. Here's a summary:</p>
 
-        <!-- Vitals -->
-        <div style="display:flex;gap:12px;margin:20px 0;">
-          <div style="flex:1;background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;text-align:center;">
-            <p style="font-size:24px;font-weight:bold;color:#2563eb;margin:0;">${log.waterIntake}L</p>
-            <p style="color:#6b7280;font-size:12px;margin:4px 0 0;">Water Intake</p>
-          </div>
-          <div style="flex:1;background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;text-align:center;">
-            <p style="font-size:24px;font-weight:bold;color:#7c3aed;margin:0;">${log.weight}kg</p>
-            <p style="color:#6b7280;font-size:12px;margin:4px 0 0;">Weight</p>
-          </div>
-          <div style="flex:1;background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;text-align:center;">
-            <p style="font-size:24px;font-weight:bold;color:#16a34a;margin:0;">${totalCalories}</p>
-            <p style="color:#6b7280;font-size:12px;margin:4px 0 0;">Total kcal</p>
-          </div>
-          <div style="flex:1;background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;text-align:center;">
-            <p style="font-size:24px;font-weight:bold;color:#ea580c;margin:0;">${log.mood || '—'}</p>
-            <p style="color:#6b7280;font-size:12px;margin:4px 0 0;">Mood</p>
-          </div>
-        </div>
+       <!-- Vitals -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0;">
+  <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;text-align:center;">
+    <p style="font-size:24px;font-weight:bold;color:#2563eb;margin:0;">${log.waterIntake}L</p>
+    <p style="color:#6b7280;font-size:12px;margin:4px 0 0;">Water Intake</p>
+  </div>
+  <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;text-align:center;">
+    <p style="font-size:24px;font-weight:bold;color:#7c3aed;margin:0;">${log.weight}kg</p>
+    <p style="color:#6b7280;font-size:12px;margin:4px 0 0;">Weight</p>
+  </div>
+  <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;text-align:center;">
+    <p style="font-size:24px;font-weight:bold;color:#16a34a;margin:0;">${totalCalories}</p>
+    <p style="color:#6b7280;font-size:12px;margin:4px 0 0;">Total kcal</p>
+  </div>
+  <div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:16px;text-align:center;">
+    <p style="font-size:24px;font-weight:bold;color:#ea580c;margin:0;">${log.mood || '—'}</p>
+    <p style="color:#6b7280;font-size:12px;margin:4px 0 0;">Mood</p>
+  </div>
+</div>
 
         <!-- Meals -->
         <h3 style="color:#111827;margin:20px 0 8px;">🍽️ Meals</h3>
