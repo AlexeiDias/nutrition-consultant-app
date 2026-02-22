@@ -62,14 +62,11 @@ export default function ClientProfilePage() {
     fetchAll();
   }, [clientId]);
 
-  const handleSave = async () => {
+const handleSave = async () => {
   if (!clientId) return;
   setSaving(true);
   try {
-    // Update Firestore client document
-    await updateClient(clientId, form);
-
-    // If email changed, update Firebase Auth via API
+    // If email changed, update Firebase Auth + users collection via API
     if (client?.email !== form.email) {
       const res = await fetch('/api/update-client-email', {
         method: 'POST',
@@ -81,14 +78,10 @@ export default function ClientProfilePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-
-      // Also update the users collection
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const { db } = await import('@/lib/firebase');
-      await updateDoc(doc(db, 'users', client!.clientUserId), {
-        email: form.email,
-      });
     }
+
+    // Update Firestore clients document
+    await updateClient(clientId, form);
 
     setClient((prev) => prev ? { ...prev, ...form } : prev);
     toast.success('Client updated!');
