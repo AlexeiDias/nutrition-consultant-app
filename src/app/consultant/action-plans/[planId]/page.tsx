@@ -162,7 +162,7 @@ export default function ActionPlanDetailPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 no-print">
         <div>
           <Link href="/consultant/action-plans" className="text-sm text-gray-500 hover:text-gray-700">
             ← Back to Plans
@@ -302,8 +302,8 @@ export default function ActionPlanDetailPage() {
         })}
 
         {/* Add Task */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">+ Add Task</h2>
+        <div className="bg-white rounded-xl border border-gray-200 p-6 no-print">
+  <h2 className="font-semibold text-gray-900 mb-4">+ Add Task</h2>
           <div className="flex flex-col gap-3">
             <Input label="Task Title" placeholder="e.g. Eat 5 portions of vegetables daily"
               value={newTask.title}
@@ -339,13 +339,13 @@ export default function ActionPlanDetailPage() {
 
         {/* Print Styles */}
         <style jsx global>{`
-          @media print {
-            aside, nav, button, a { display: none !important; }
-            main { padding: 0 !important; }
-            .rounded-xl { border-radius: 8px !important; }
-            body { font-size: 12px; }
-          }
-        `}</style>
+  @media print {
+    aside, nav, button, a, .no-print { display: none !important; }
+    main { padding: 0 !important; }
+    .rounded-xl { border-radius: 8px !important; }
+    body { font-size: 12px; }
+  }
+`}</style>
       </div>
     </div>
   );
