@@ -28,14 +28,7 @@ export default function NewActionPlanPage() {
   const clientName = searchParams.get('clientName') ?? '';
 
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    title: '',
-    clientId: clientId,
-    clientName: clientName,
-    startDate: new Date().toISOString().split('T')[0],
-    nextConsultation: '',
-    status: 'active' as const,
-  });
+  
 
   const [tasks, setTasks] = useState<ActionPlanTask[]>([]);
   const [newTask, setNewTask] = useState({
