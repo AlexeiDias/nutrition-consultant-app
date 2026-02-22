@@ -109,21 +109,20 @@ export default function HistoryPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {log.reportSent ? (
-                      <span className="text-xs px-3 py-1 rounded-full font-medium bg-green-100 text-green-700">
-                        📬 Report Sent
-                      </span>
-                    ) : (
-                      <Button
-                        variant="primary"
-                        loading={sending === log.id}
-                        onClick={() => handleSendReport(log)}
-                        className="text-xs px-3 py-1"
-                      >
-                        📤 Send Report
-                      </Button>
-                    )}
-                  </div>
+  {log.reportSent && (
+    <span className="text-xs px-3 py-1 rounded-full font-medium bg-green-100 text-green-700">
+      📬 Sent
+    </span>
+  )}
+  <Button
+    variant={log.reportSent ? 'secondary' : 'primary'}
+    loading={sending === log.id}
+    onClick={() => handleSendReport(log)}
+    className="text-xs px-3 py-1"
+  >
+    {log.reportSent ? '🔄 Resend' : '📤 Send Report'}
+  </Button>
+</div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
