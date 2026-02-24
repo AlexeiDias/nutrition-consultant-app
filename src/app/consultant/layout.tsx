@@ -36,7 +36,7 @@ export default function ConsultantLayout({ children }: { children: React.ReactNo
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="flex-1 p-8 overflow-y-auto pt-20 lg:pt-8">
         {children}
       </main>
     </div>
