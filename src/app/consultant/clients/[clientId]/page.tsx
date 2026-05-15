@@ -13,6 +13,38 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
+const ACTIVITY_LABELS: Record<string, string> = {
+  sedentary: 'Sedentary — little or no exercise',
+  lightly_active: 'Lightly active — 1–3 days/week',
+  moderately_active: 'Moderately active — 3–5 days/week',
+  very_active: 'Very active — 6–7 days/week',
+  extra_active: 'Extra active — physical job or 2x training',
+};
+
+const ACTIVITY_MULTIPLIERS: Record<string, number> = {
+  sedentary: 1.2,
+  lightly_active: 1.375,
+  moderately_active: 1.55,
+  very_active: 1.725,
+  extra_active: 1.9,
+};
+
+function calculateTDEE(
+  gender: string,
+  age: number,
+  height: number,
+  weight: number,
+  activityLevel: string
+): number {
+  let bmr = 0;
+  if (gender?.toLowerCase() === 'female') {
+    bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+  } else {
+    bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+  }
+  return Math.round(bmr * (ACTIVITY_MULTIPLIERS[activityLevel] ?? 1.2));
+}
+
 export default function ClientProfilePage() {
   const { clientId } = useParams<{ clientId: string }>();
   const router = useRouter();
@@ -29,6 +61,9 @@ export default function ClientProfilePage() {
     phone: '',
     dob: '',
     gender: '',
+    age: '',
+    height: '',
+    activityLevel: '',
     medicalHistory: '',
     nutritionGoals: '',
     currentPlan: '',
@@ -45,14 +80,17 @@ export default function ClientProfilePage() {
       if (clientData) {
         setClient(clientData);
         setForm({
-          name: clientData.name,
-          email: clientData.email,
-          phone: clientData.phone,
-          dob: clientData.dob,
-          gender: clientData.gender,
-          medicalHistory: clientData.medicalHistory,
-          nutritionGoals: clientData.nutritionGoals,
-          currentPlan: clientData.currentPlan,
+          name: clientData.name ?? '',
+          email: clientData.email ?? '',
+          phone: clientData.phone ?? '',
+          dob: clientData.dob ?? '',
+          gender: clientData.gender ?? '',
+          age: clientData.age ? String(clientData.age) : '',
+          height: clientData.height ? String(clientData.height) : '',
+          activityLevel: clientData.activityLevel ?? '',
+          medicalHistory: clientData.medicalHistory ?? '',
+          nutritionGoals: clientData.nutritionGoals ?? '',
+          currentPlan: clientData.currentPlan ?? '',
         });
       }
       setLogs(logsData);
@@ -62,43 +100,74 @@ export default function ClientProfilePage() {
     fetchAll();
   }, [clientId]);
 
-const handleSave = async () => {
-  if (!clientId) return;
-  setSaving(true);
-  try {
-    // If email changed, update Firebase Auth + users collection via API
-    if (client?.email !== form.email) {
-      const res = await fetch('/api/update-client-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientUserId: client?.clientUserId,
-          newEmail: form.email,
-        }),
+  const handleSave = async () => {
+    if (!clientId) return;
+    setSaving(true);
+    try {
+      // If email changed, update Firebase Auth + users collection via API
+      if (client?.email !== form.email) {
+        const res = await fetch('/api/update-client-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientUserId: client?.clientUserId,
+            newEmail: form.email,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+      }
+
+      // Update Firestore clients document
+      await updateClient(clientId, {
+        ...form,
+        age: form.age ? Number(form.age) : null,
+        height: form.height ? Number(form.height) : null,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+
+      setClient((prev) =>
+        prev
+          ? {
+              ...prev,
+              ...form,
+              age: form.age ? Number(form.age) : prev.age,
+              height: form.height ? Number(form.height) : prev.height,
+            }
+          : prev
+      );
+      toast.success('Client updated!');
+      setEditing(false);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update client';
+      toast.error(message);
+    } finally {
+      setSaving(false);
     }
+  };
 
-    // Update Firestore clients document
-    await updateClient(clientId, form);
-
-    setClient((prev) => prev ? { ...prev, ...form } : prev);
-    toast.success('Client updated!');
-    setEditing(false);
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to update client';
-    toast.error(message);
-  } finally {
-    setSaving(false);
-  }
-};
-
-  if (loading) return <div className="flex justify-center py-12"><LoadingSpinner /></div>;
+  if (loading)
+    return (
+      <div className="flex justify-center py-12">
+        <LoadingSpinner />
+      </div>
+    );
   if (!client) return <div className="text-gray-500">Client not found</div>;
 
   const activePlan = plans.find((p) => p.status === 'active');
   const recentLog = logs[0];
+
+  // Calculate TDEE if we have all the data
+  const latestWeight = recentLog?.weight || null;
+  const tdee =
+    client.gender && client.age && client.height && latestWeight && client.activityLevel
+      ? calculateTDEE(
+          client.gender,
+          Number(client.age),
+          Number(client.height),
+          latestWeight,
+          client.activityLevel
+        )
+      : null;
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -108,24 +177,31 @@ const handleSave = async () => {
             ← Back to Clients
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 mt-1">{client.name}</h1>
-          <p className="text-gray-500 text-sm">{client.email}</p>
+          <p className="text-gray-500 text-sm truncate">{client.email}</p>
         </div>
-        <div className="flex gap-2">
-          <Link href={`/consultant/action-plans/new?clientId=${clientId}&clientName=${client.name}`}>
+        <div className="flex gap-2 flex-wrap justify-end">
+          <Link
+            href={`/consultant/action-plans/new?clientId=${clientId}&clientName=${client.name}`}
+          >
             <Button variant="secondary">📋 New Plan</Button>
           </Link>
           {!editing ? (
             <Button onClick={() => setEditing(true)}>✏️ Edit</Button>
           ) : (
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
-              <Button loading={saving} onClick={handleSave}>Save</Button>
+              <Button variant="secondary" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+              <Button loading={saving} onClick={handleSave}>
+                Save
+              </Button>
             </div>
           )}
         </div>
       </div>
 
       <div className="flex flex-col gap-6">
+
         {/* Quick Stats */}
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
@@ -144,38 +220,65 @@ const handleSave = async () => {
           </div>
         </div>
 
+        {/* TDEE Card */}
+        {tdee && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-blue-900">
+                🔥 Estimated Daily Calorie Need (TDEE)
+              </p>
+              <p className="text-xs text-blue-600 mt-0.5">
+                Mifflin-St Jeor · Based on current metrics
+              </p>
+            </div>
+            <p className="text-2xl font-bold text-blue-700">{tdee} kcal</p>
+          </div>
+        )}
+
         {/* Personal Info */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
             Personal Information
           </h2>
           {editing ? (
-  <div className="flex flex-col gap-4">
-    <div className="grid grid-cols-2 gap-4">
-      <Input label="Full Name" value={form.name}
-        onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-      <Input label="Phone" value={form.phone}
-        onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
-    </div>
-    <Input
-      label="Email"
-      type="email"
-      value={form.email}
-      onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-    />
-    <div className="grid grid-cols-2 gap-4">
-                <Input label="Date of Birth" type="date" value={form.dob}
-                  onChange={(e) => setForm((p) => ({ ...p, dob: e.target.value }))} />
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Full Name"
+                  value={form.name}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                />
+                <Input
+                  label="Phone"
+                  value={form.phone}
+                  onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                />
+              </div>
+              <Input
+                label="Email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Date of Birth"
+                  type="date"
+                  value={form.dob}
+                  onChange={(e) => setForm((p) => ({ ...p, dob: e.target.value }))}
+                />
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-700">Gender</label>
-                  <select value={form.gender}
+                  <select
+                    value={form.gender}
                     onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500">
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
+                  >
                     <option value="">Select...</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                    <option value="Prefer not to say">Prefer not to say</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                    <option value="prefer_not_to_say">Prefer not to say</option>
                   </select>
                 </div>
               </div>
@@ -190,9 +293,75 @@ const handleSave = async () => {
               ].map((item) => (
                 <div key={item.label} className="bg-gray-50 rounded-lg p-3">
                   <p className="text-xs text-gray-500">{item.label}</p>
-                  <p className="text-gray-900 font-medium">{item.value || '—'}</p>
+                  <p className="text-gray-900 font-medium truncate">{item.value || '—'}</p>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Body Metrics */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-1">
+            Body Metrics
+          </h2>
+          <p className="text-xs text-gray-400 mb-4">
+            Used to calculate daily calorie needs (TDEE) via Mifflin-St Jeor equation
+          </p>
+          {editing ? (
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Age"
+                  type="number"
+                  placeholder="e.g. 35"
+                  value={form.age}
+                  onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
+                />
+                <Input
+                  label="Height (cm)"
+                  type="number"
+                  placeholder="e.g. 165"
+                  value={form.height}
+                  onChange={(e) => setForm((p) => ({ ...p, height: e.target.value }))}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-gray-700">Activity Level</label>
+                <select
+                  value={form.activityLevel}
+                  onChange={(e) => setForm((p) => ({ ...p, activityLevel: e.target.value }))}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">Select activity level...</option>
+                  <option value="sedentary">Sedentary — little or no exercise</option>
+                  <option value="lightly_active">Lightly active — 1–3 days/week</option>
+                  <option value="moderately_active">Moderately active — 3–5 days/week</option>
+                  <option value="very_active">Very active — 6–7 days/week</option>
+                  <option value="extra_active">Extra active — physical job or 2x training</option>
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs text-gray-500">Age</p>
+                <p className="text-gray-900 font-medium">{client.age ? `${client.age} yrs` : '—'}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs text-gray-500">Height</p>
+                <p className="text-gray-900 font-medium">
+                  {client.height ? `${client.height} cm` : '—'}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs text-gray-500">Activity Level</p>
+                <p className="text-gray-900 font-medium text-xs">
+                  {client.activityLevel
+                    ? ACTIVITY_LABELS[client.activityLevel] ?? client.activityLevel
+                    : '—'}
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -205,13 +374,27 @@ const handleSave = async () => {
           {editing ? (
             <div className="flex flex-col gap-4">
               {[
-                { label: 'Medical History', key: 'medicalHistory', placeholder: 'Allergies, conditions, medications...' },
-                { label: 'Nutrition Goals', key: 'nutritionGoals', placeholder: 'Weight loss, muscle gain...' },
-                { label: 'Current Plan Notes', key: 'currentPlan', placeholder: 'Brief plan summary...' },
+                {
+                  label: 'Medical History',
+                  key: 'medicalHistory',
+                  placeholder: 'Allergies, conditions, medications...',
+                },
+                {
+                  label: 'Nutrition Goals',
+                  key: 'nutritionGoals',
+                  placeholder: 'Weight loss, muscle gain...',
+                },
+                {
+                  label: 'Current Plan Notes',
+                  key: 'currentPlan',
+                  placeholder: 'Brief plan summary...',
+                },
               ].map((field) => (
                 <div key={field.key} className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-700">{field.label}</label>
-                  <textarea rows={3} placeholder={field.placeholder}
+                  <textarea
+                    rows={3}
+                    placeholder={field.placeholder}
                     value={form[field.key as keyof typeof form]}
                     onChange={(e) => setForm((p) => ({ ...p, [field.key]: e.target.value }))}
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
@@ -250,19 +433,29 @@ const handleSave = async () => {
               </Link>
             </div>
             <p className="font-semibold text-gray-900 mb-2">{activePlan.title}</p>
+            {activePlan.programGoal && (
+              <p className="text-xs text-green-600 mb-3">🎯 {activePlan.programGoal}</p>
+            )}
             <div className="flex items-center gap-2">
               <div className="flex-1 bg-gray-100 rounded-full h-2">
                 <div
                   className="bg-green-500 h-2 rounded-full transition-all"
                   style={{
-                    width: `${activePlan.tasks.length > 0
-                      ? Math.round((activePlan.tasks.filter((t) => t.completed).length / activePlan.tasks.length) * 100)
-                      : 0}%`,
+                    width: `${
+                      activePlan.tasks.length > 0
+                        ? Math.round(
+                            (activePlan.tasks.filter((t) => t.completed).length /
+                              activePlan.tasks.length) *
+                              100
+                          )
+                        : 0
+                    }%`,
                   }}
                 />
               </div>
               <span className="text-sm text-gray-500">
-                {activePlan.tasks.filter((t) => t.completed).length}/{activePlan.tasks.length} tasks
+                {activePlan.tasks.filter((t) => t.completed).length}/{activePlan.tasks.length}{' '}
+                tasks
               </span>
             </div>
           </div>
@@ -280,15 +473,27 @@ const handleSave = async () => {
                   ? new Date((log.date as any).seconds * 1000)
                   : new Date(log.date);
                 return (
-                  <div key={log.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
+                  <div
+                    key={log.id}
+                    className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3"
+                  >
                     <div>
                       <p className="text-sm font-medium text-gray-900">
                         {format(logDate, 'EEE, MMM d')}
                       </p>
                       <p className="text-xs text-gray-500">
-{log.waterIntake}L water · {log.weight ? `${log.weight}kg` : 'no weight'} · {log.mood || '—'}                      </p>
+                        {log.waterIntake}L water ·{' '}
+                        {log.weight ? `${log.weight}kg` : 'no weight'} ·{' '}
+                        {log.mood || '—'}
+                      </p>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${log.reportSent ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full ${
+                        log.reportSent
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
                       {log.reportSent ? '📬 Sent' : '📝 Draft'}
                     </span>
                   </div>
