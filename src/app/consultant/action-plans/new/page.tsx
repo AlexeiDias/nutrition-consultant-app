@@ -4,8 +4,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { createActionPlan } from '@/lib/firestore';
-import { ActionPlanTask, PlanDay, ActivityLevel } from '@/lib/types';
+import { createActionPlan, getClientsByConsultant } from '@/lib/firestore';
+import { ActionPlanTask, PlanDay, ActivityLevel, Client } from '@/lib/types';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import MealsBuilder from '@/components/consultant/MealsBuilder';
@@ -45,7 +45,6 @@ function calculateTDEE(
   weight: number,
   activityLevel: ActivityLevel
 ): number {
-  // Mifflin-St Jeor equation
   let bmr = 0;
   if (gender?.toLowerCase() === 'female') {
     bmr = 10 * weight + 6.25 * height - 5 * age - 161;
@@ -59,16 +58,17 @@ export default function NewActionPlanPage() {
   const { profile } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const clientId = searchParams.get('clientId') ?? '';
-  const clientName = searchParams.get('clientName') ?? '';
+  const urlClientId = searchParams.get('clientId') ?? '';
+  const urlClientName = searchParams.get('clientName') ?? '';
 
   const [loading, setLoading] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [customGoal, setCustomGoal] = useState('');
   const [planDays, setPlanDays] = useState<PlanDay[]>([]);
   const [tasks, setTasks] = useState<ActionPlanTask[]>([]);
   const [tdee, setTdee] = useState<number>(0);
-  const [clientData, setClientData] = useState<any>(null);
+  const [clientData, setClientData] = useState<Client | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
 
@@ -80,8 +80,8 @@ export default function NewActionPlanPage() {
 
   const [form, setForm] = useState({
     title: '',
-    clientId,
-    clientName,
+    clientId: urlClientId,
+    clientName: urlClientName,
     startDate: new Date().toISOString().split('T')[0],
     nextConsultation: '',
     status: 'active' as const,
@@ -89,33 +89,33 @@ export default function NewActionPlanPage() {
     targetWeight: '',
   });
 
-  // Load client data to auto-calculate TDEE
+  // Load all clients for the selector
   useEffect(() => {
-    if (!clientId) return;
-    const fetchClient = async () => {
-      try {
-        const res = await fetch(`/api/get-client?clientId=${clientId}`);
-        if (res.ok) {
-          const client = await res.json();
-          setClientData(client);
-          if (client.gender && client.age && client.height && client.activityLevel) {
-            const weight = form.startWeight ? Number(form.startWeight) : 70;
-            const calculatedTdee = calculateTDEE(
-              client.gender,
-              Number(client.age),
-              Number(client.height),
-              weight,
-              client.activityLevel as ActivityLevel
-            );
-            setTdee(calculatedTdee);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load client:', err);
+    if (!profile?.uid) return;
+    getClientsByConsultant(profile.uid).then(setClients);
+  }, [profile]);
+
+  // When a client is selected (either via URL or dropdown), load their data for TDEE
+  useEffect(() => {
+    if (!form.clientId) return;
+    const found = clients.find((c) => c.id === form.clientId);
+    if (found) {
+      setClientData(found);
+      if (found.gender && found.age && found.height && found.activityLevel) {
+        const weight = form.startWeight ? Number(form.startWeight) : 70;
+        const calculatedTdee = calculateTDEE(
+          found.gender,
+          Number(found.age),
+          Number(found.height),
+          weight,
+          found.activityLevel as ActivityLevel
+        );
+        setTdee(calculatedTdee);
+      } else {
+        setTdee(0);
       }
-    };
-    fetchClient();
-  }, [clientId]);
+    }
+  }, [form.clientId, clients]);
 
   // Recalculate TDEE when startWeight changes
   useEffect(() => {
@@ -220,14 +220,11 @@ export default function NewActionPlanPage() {
       toast.error('Please select at least one program goal');
       return;
     }
-
-    // Show disclaimer if meal plan was generated
     if (planDays.length > 0) {
       setShowDisclaimer(true);
       setPendingSubmit(true);
       return;
     }
-
     await doSave();
   };
 
@@ -238,7 +235,7 @@ export default function NewActionPlanPage() {
           ← Back to Action Plans
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 mt-2">New Action Plan</h1>
-        {clientName && <p className="text-gray-500 mt-1">For {clientName}</p>}
+        {form.clientName && <p className="text-gray-500 mt-1">For {form.clientName}</p>}
       </div>
 
       {/* Safety Disclaimer Modal */}
@@ -297,6 +294,45 @@ export default function NewActionPlanPage() {
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
             Plan Details
           </h2>
+
+          {/* Client Selector — shown when no client pre-selected via URL */}
+          {!urlClientId && (
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700">
+                Client <span className="text-red-500">*</span>
+              </label>
+              {clients.length === 0 ? (
+                <p className="text-sm text-gray-400">
+                  No clients found.{' '}
+                  <Link href="/consultant/clients/new" className="text-green-600 underline">
+                    Add a client first →
+                  </Link>
+                </p>
+              ) : (
+                <select
+                  value={form.clientId}
+                  onChange={(e) => {
+                    const selected = clients.find((c) => c.id === e.target.value);
+                    setForm((p) => ({
+                      ...p,
+                      clientId: e.target.value,
+                      clientName: selected?.name ?? '',
+                    }));
+                  }}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
+                  required
+                >
+                  <option value="">Select a client...</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} — {c.email}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
           <Input
             label="Plan Title"
             placeholder="e.g. 4-Week Weight Loss Program"
@@ -401,26 +437,29 @@ export default function NewActionPlanPage() {
               </div>
               {selectedGoals.includes('Weight loss') && (
                 <p className="text-xs text-orange-600 mt-2 bg-orange-50 rounded px-2 py-1">
-                  ⚡ Suggested deficit target: <strong>{tdee - 500} kcal/day</strong> (500 kcal deficit)
+                  ⚡ Suggested deficit target:{' '}
+                  <strong>{tdee - 500} kcal/day</strong> (500 kcal deficit)
                 </p>
               )}
               {selectedGoals.includes('Muscle gain') && (
                 <p className="text-xs text-green-600 mt-2 bg-green-50 rounded px-2 py-1">
-                  ⚡ Suggested surplus target: <strong>{tdee + 300} kcal/day</strong> (300 kcal surplus)
+                  ⚡ Suggested surplus target:{' '}
+                  <strong>{tdee + 300} kcal/day</strong> (300 kcal surplus)
                 </p>
               )}
             </div>
           )}
 
-          {/* Missing client data warning */}
-          {clientId && !tdee && (
+          {/* Missing client body metrics warning */}
+          {form.clientId && !tdee && clientData && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
               <p className="text-sm text-yellow-800 font-medium">⚠️ TDEE cannot be calculated</p>
               <p className="text-xs text-yellow-600 mt-1">
-                Client is missing age, height, or activity level. Update the client profile to enable calorie targets.
+                Client is missing age, height, or activity level. Update the client profile to
+                enable accurate calorie targets.
               </p>
               <Link
-                href={`/consultant/clients/${clientId}`}
+                href={`/consultant/clients/${form.clientId}`}
                 className="text-xs text-yellow-700 underline mt-1 inline-block"
               >
                 Update client profile →
@@ -458,7 +497,8 @@ export default function NewActionPlanPage() {
             <p className="text-xs text-orange-800">
               <strong>⚠️ Clinical Notice:</strong> AI-generated meal plans are suggestions only.
               Always review for nutritional adequacy before sharing with clients, especially those
-              with clinical conditions. Plans are saved as <strong>Draft</strong> until marked as Reviewed.
+              with clinical conditions. Plans are saved as <strong>Draft</strong> until marked as
+              Reviewed.
             </p>
           </div>
 
@@ -490,7 +530,9 @@ export default function NewActionPlanPage() {
               {tasks.map((task) => (
                 <div
                   key={task.id}
-                  className={`flex items-start justify-between rounded-lg border p-3 ${categoryColors[task.category]}`}
+                  className={`flex items-start justify-between rounded-lg border p-3 ${
+                    categoryColors[task.category]
+                  }`}
                 >
                   <div>
                     <p className="font-medium text-sm">{task.title}</p>
@@ -533,7 +575,9 @@ export default function NewActionPlanPage() {
               <label className="text-sm font-medium text-gray-700">Category</label>
               <select
                 value={newTask.category}
-                onChange={(e) => setNewTask((p) => ({ ...p, category: e.target.value as any }))}
+                onChange={(e) =>
+                  setNewTask((p) => ({ ...p, category: e.target.value as any }))
+                }
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="exercise">🏃 Exercise</option>
