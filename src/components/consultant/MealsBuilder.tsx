@@ -1,20 +1,13 @@
+// MealsBuilder.tsx
 'use client';
 
 import { useState } from 'react';
-import { PlanDay, MealItem, MealSlot, PlannedMealIngredient } from '@/lib/types';
+import { PlanDay, MealSlot, PlannedMealIngredient } from '@/lib/types';
 import CalorieCalculator from './CalorieCalculator';
 import Button from '@/components/ui/Button';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import toast from 'react-hot-toast';
-
-const MEAL_SLOTS: MealSlot[] = [
-  'Breakfast',
-  'Snack',
-  'Lunch',
-  'Afternoon Snack',
-  'Dinner',
-];
 
 const slotColors: Record<MealSlot, string> = {
   Breakfast: 'bg-yellow-50 border-yellow-200',
@@ -38,6 +31,8 @@ interface MealsBuilderProps {
   startDate: string;
   nextConsultation: string;
   programGoal: string;
+  tdee?: number;
+  selectedGoals?: string[];
 }
 
 export default function MealsBuilder({
@@ -46,6 +41,8 @@ export default function MealsBuilder({
   startDate,
   nextConsultation,
   programGoal,
+  tdee = 0,
+  selectedGoals = [],
 }: MealsBuilderProps) {
   const [generating, setGenerating] = useState(false);
   const [expandedDay, setExpandedDay] = useState<number | null>(0);
@@ -66,6 +63,15 @@ export default function MealsBuilder({
         )
       : 0;
 
+  const calorieTarget =
+    tdee > 0
+      ? selectedGoals.includes('Weight loss')
+        ? tdee - 500
+        : selectedGoals.includes('Muscle gain')
+        ? tdee + 300
+        : tdee
+      : 0;
+
   const handleGenerate = async () => {
     if (!programGoal) {
       toast.error('Please enter a program goal first');
@@ -75,10 +81,7 @@ export default function MealsBuilder({
       toast.error('Please set start date and consultation date first');
       return;
     }
-    if (
-      planDays.length > 0 &&
-      !confirm('This will replace the current meal plan. Continue?')
-    )
+    if (planDays.length > 0 && !confirm('This will replace the current meal plan. Continue?'))
       return;
 
     setGenerating(true);
@@ -86,7 +89,14 @@ export default function MealsBuilder({
       const res = await fetch('/api/generate-meal-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ programGoal, numberOfDays, startDate }),
+        body: JSON.stringify({
+          programGoal,
+          numberOfDays,
+          startDate,
+          tdee,
+          calorieTarget,
+          selectedGoals,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -108,7 +118,6 @@ export default function MealsBuilder({
     mealName: string
   ) => {
     const totalCalories = ingredients.reduce((s, i) => s + i.calories, 0);
-
     const updated = planDays.map((day, dIdx) =>
       dIdx === dayIndex
         ? {
@@ -148,29 +157,34 @@ export default function MealsBuilder({
       <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h4 className="font-semibold text-green-900">
-              ✨ AI Meal Plan Generator
-            </h4>
+            <h4 className="font-semibold text-green-900">✨ AI Meal Plan Generator</h4>
             <p className="text-sm text-green-700 mt-0.5">
-              Generate a {numberOfDays}-day meal plan based on{' '}
+              Generate a {numberOfDays}-day plan for{' '}
               <strong>{programGoal || 'your program goal'}</strong>
+              {calorieTarget > 0 && (
+                <span className="ml-1 text-blue-600">· Target: {calorieTarget} kcal/day</span>
+              )}
             </p>
           </div>
-          <Button
-            onClick={handleGenerate}
-            loading={generating}
-            className="shrink-0 ml-3"
-          >
+          <Button onClick={handleGenerate} loading={generating} className="shrink-0 ml-3">
             {generating ? 'Generating...' : '✨ Generate Plan'}
           </Button>
         </div>
+        {calorieTarget > 0 && (
+          <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+            <p className="text-xs text-blue-700">
+              🔥 <strong>{calorieTarget} kcal/day</strong> target passed to AI
+              {selectedGoals.includes('Weight loss') && ' (500 kcal deficit from TDEE)'}
+              {selectedGoals.includes('Muscle gain') && ' (300 kcal surplus from TDEE)'}
+            </p>
+          </div>
+        )}
         {generating && (
           <div className="mt-3 bg-white rounded-lg p-3 border border-green-200">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-green-700">
-                AI is creating your {numberOfDays}-day meal plan. This may take
-                a minute...
+                AI is creating your {numberOfDays}-day meal plan. This may take a minute...
               </p>
             </div>
           </div>
@@ -182,23 +196,14 @@ export default function MealsBuilder({
         <div className="flex flex-col gap-3">
           {planDays.map((day, dayIndex) => {
             const dayDate = new Date(day.date);
-            const dayTotalCals = day.meals.reduce(
-              (s, m) => s + m.totalCalories,
-              0
-            );
+            const dayTotalCals = day.meals.reduce((s, m) => s + m.totalCalories, 0);
             const isExpanded = expandedDay === dayIndex;
 
             return (
-              <div
-                key={dayIndex}
-                className="bg-white rounded-xl border border-gray-200 overflow-hidden"
-              >
-                {/* Day Header */}
+              <div key={dayIndex} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <button
                   type="button"
-                  onClick={() =>
-                    setExpandedDay(isExpanded ? null : dayIndex)
-                  }
+                  onClick={() => setExpandedDay(isExpanded ? null : dayIndex)}
                   className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-all"
                 >
                   <div className="flex items-center gap-3">
@@ -206,59 +211,44 @@ export default function MealsBuilder({
                       {day.day}
                     </div>
                     <div className="text-left">
-                      <p className="font-semibold text-gray-900">
-                        Day {day.day}
-                      </p>
+                      <p className="font-semibold text-gray-900">Day {day.day}</p>
                       <p className="text-xs text-gray-500">
-                        {format(dayDate, 'EEEE, MMM d')} · {dayTotalCals} kcal
-                        total
+                        {format(dayDate, 'EEEE, MMM d')} · {dayTotalCals} kcal total
+                        {calorieTarget > 0 && (
+                          <span className={Math.abs(dayTotalCals - calorieTarget) < 100 ? ' text-green-600' : ' text-orange-500'}>
+                            {' '}({dayTotalCals > calorieTarget ? '+' : ''}{dayTotalCals - calorieTarget} vs target)
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
-                  <span className="text-gray-400 text-sm">
-                    {isExpanded ? '▲' : '▼'}
-                  </span>
+                  <span className="text-gray-400 text-sm">{isExpanded ? '▲' : '▼'}</span>
                 </button>
 
-                {/* Meals */}
                 {isExpanded && (
                   <div className="border-t border-gray-100 p-4 flex flex-col gap-3">
                     {day.meals.map((meal) => {
                       const isEditing =
-                        editingMeal?.dayIndex === dayIndex &&
-                        editingMeal?.mealId === meal.id;
+                        editingMeal?.dayIndex === dayIndex && editingMeal?.mealId === meal.id;
 
                       return (
-                        <div
-                          key={meal.id}
-                          className={`rounded-lg border p-3 ${slotColors[meal.slot]}`}
-                        >
-                          {/* Meal Header */}
+                        <div key={meal.id} className={`rounded-lg border p-3 ${slotColors[meal.slot]}`}>
                           <div className="flex items-center justify-between mb-2">
                             <div>
                               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                                 {slotIcons[meal.slot]} {meal.slot}
                               </p>
-                              <p className="font-medium text-gray-900 text-sm">
-                                {meal.name}
-                              </p>
+                              <p className="font-medium text-gray-900 text-sm">{meal.name}</p>
                             </div>
                             <button
                               type="button"
-                              onClick={() =>
-                                setEditingMeal(
-                                  isEditing
-                                    ? null
-                                    : { dayIndex, mealId: meal.id }
-                                )
-                              }
+                              onClick={() => setEditingMeal(isEditing ? null : { dayIndex, mealId: meal.id })}
                               className="text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded px-2 py-1 bg-white"
                             >
                               {isEditing ? 'Cancel' : '✏️ Edit'}
                             </button>
                           </div>
 
-                          {/* Macros */}
                           <div className="flex gap-2 flex-wrap mb-2">
                             <span className="text-xs bg-white px-2 py-0.5 rounded-full border">
                               🔥 {meal.totalCalories} kcal
@@ -280,7 +270,6 @@ export default function MealsBuilder({
                             )}
                           </div>
 
-                          {/* Ingredients */}
                           {meal.ingredients.length > 0 && (
                             <div className="flex flex-col gap-1 mb-2">
                               {meal.ingredients.map((ing) => (
@@ -288,18 +277,13 @@ export default function MealsBuilder({
                                   key={ing.id}
                                   className="flex items-center justify-between text-xs bg-white rounded px-2 py-1 border border-white"
                                 >
-                                  <span className="text-gray-700">
-                                    {ing.name}
-                                  </span>
-                                  <span className="text-gray-400">
-                                    {ing.quantity}g · {ing.calories} kcal
-                                  </span>
+                                  <span className="text-gray-700">{ing.name}</span>
+                                  <span className="text-gray-400">{ing.quantity}g · {ing.calories} kcal</span>
                                 </div>
                               ))}
                             </div>
                           )}
 
-                          {/* Inline Calculator */}
                           {isEditing && (
                             <div className="mt-3 bg-white rounded-lg p-3 border border-gray-200">
                               <p className="text-xs font-semibold text-gray-600 mb-2">
@@ -310,12 +294,7 @@ export default function MealsBuilder({
                                 initialMealName={meal.name}
                                 initialIngredients={meal.ingredients}
                                 onSaveMeal={(savedMeal) =>
-                                  handleUpdateMeal(
-                                    dayIndex,
-                                    meal.id,
-                                    savedMeal.ingredients,
-                                    savedMeal.name
-                                  )
+                                  handleUpdateMeal(dayIndex, meal.id, savedMeal.ingredients, savedMeal.name)
                                 }
                               />
                             </div>

@@ -27,6 +27,13 @@ export interface ClientProfile {
   updatedAt: Date;
 }
 
+export type ActivityLevel =
+  | 'sedentary'
+  | 'lightly_active'
+  | 'moderately_active'
+  | 'very_active'
+  | 'extra_active';
+
 export interface Client {
   id: string;
   consultantId: string;
@@ -36,6 +43,9 @@ export interface Client {
   dob: string;
   gender: string;
   phone: string;
+  age: number;
+  height: number;
+  activityLevel: ActivityLevel | '';
   medicalHistory: string;
   nutritionGoals: string;
   currentPlan: string;
@@ -73,6 +83,8 @@ export interface ActionPlanTask {
   completedAt: Date | null;
 }
 
+export type PlanStatus = 'draft' | 'reviewed' | 'approved';
+
 export interface ActionPlan {
   id: string;
   consultantId: string;
@@ -80,6 +92,9 @@ export interface ActionPlan {
   clientName: string;
   title: string;
   programGoal: string;
+  programGoals: string[];
+  planStatus: PlanStatus;
+  tdee: number;
   startDate: Date;
   nextConsultation: Date;
   status: 'active' | 'completed' | 'archived';

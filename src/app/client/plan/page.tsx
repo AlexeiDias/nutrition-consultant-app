@@ -1,3 +1,4 @@
+// ClientPlanPage.tsx - The main page for clients to view their current action plan, including tasks, meal plans, and progress bars. It also allows toggling task completion and printing the plan in a clean format.s
 'use client';
 
 import { useEffect, useState } from 'react';

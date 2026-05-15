@@ -1,4 +1,4 @@
-//src/app/consultant/clients/new/page.tsx
+// src/app/consultant/clients/new/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -21,12 +21,14 @@ export default function NewClientPage() {
     dob: '',
     gender: '',
     phone: '',
+    age: '',
+    height: '',
+    activityLevel: '',
     medicalHistory: '',
     nutritionGoals: '',
     currentPlan: '',
   });
 
-  // Redirect away if not a consultant
   useEffect(() => {
     if (loading) return;
     if (!profile) {
@@ -55,6 +57,8 @@ export default function NewClientPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          age: form.age ? Number(form.age) : null,
+          height: form.height ? Number(form.height) : null,
           consultantId: profile.uid,
         }),
       });
@@ -86,6 +90,7 @@ export default function NewClientPage() {
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col gap-5">
 
+        {/* Login Credentials */}
         <div>
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
             Login Credentials
@@ -98,6 +103,7 @@ export default function NewClientPage() {
 
         <hr className="border-gray-100" />
 
+        {/* Personal Information */}
         <div>
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
             Personal Information
@@ -115,10 +121,10 @@ export default function NewClientPage() {
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="">Select...</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                  <option value="Prefer not to say">Prefer not to say</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                  <option value="prefer_not_to_say">Prefer not to say</option>
                 </select>
               </div>
             </div>
@@ -128,6 +134,55 @@ export default function NewClientPage() {
 
         <hr className="border-gray-100" />
 
+        {/* Body Metrics — needed for TDEE calculation */}
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-1">
+            Body Metrics
+          </h2>
+          <p className="text-xs text-gray-400 mb-3">
+            Used to calculate daily calorie needs (TDEE) via Mifflin-St Jeor equation
+          </p>
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Age"
+                type="number"
+                name="age"
+                placeholder="e.g. 35"
+                value={form.age}
+                onChange={handleChange}
+              />
+              <Input
+                label="Height (cm)"
+                type="number"
+                name="height"
+                placeholder="e.g. 165"
+                value={form.height}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700">Activity Level</label>
+              <select
+                name="activityLevel"
+                value={form.activityLevel}
+                onChange={handleChange}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">Select activity level...</option>
+                <option value="sedentary">Sedentary — little or no exercise</option>
+                <option value="lightly_active">Lightly active — 1–3 days/week</option>
+                <option value="moderately_active">Moderately active — 3–5 days/week</option>
+                <option value="very_active">Very active — 6–7 days/week</option>
+                <option value="extra_active">Extra active — physical job or 2x training</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <hr className="border-gray-100" />
+
+        {/* Clinical Information */}
         <div>
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
             Clinical Information

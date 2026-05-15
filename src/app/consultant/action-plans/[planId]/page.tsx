@@ -1,5 +1,4 @@
-// Consultant-side page to view and edit details of a specific action plan, including tasks, progress, and plan information
-//src/app/consultant/action-plans/[planId]/page.tsx
+// src/app/consultant/action-plans/[planId]/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -35,6 +34,7 @@ export default function ActionPlanDetailPage() {
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [markingReviewed, setMarkingReviewed] = useState(false);
 
   const [editForm, setEditForm] = useState({
     title: '',
@@ -50,33 +50,47 @@ export default function ActionPlanDetailPage() {
   });
 
   useEffect(() => {
-  if (!planId) return;
-  getActionPlanById(planId)
-    .then((data) => {
-      if (data) {
-        setPlan(data);
-        const startDate = (data.startDate as any)?.seconds
-          ? new Date((data.startDate as any).seconds * 1000)
-          : new Date(data.startDate);
-        const nextConsult = (data.nextConsultation as any)?.seconds
-          ? new Date((data.nextConsultation as any).seconds * 1000)
-          : new Date(data.nextConsultation);
-        setEditForm({
-          title: data.title,
-          startDate: startDate.toISOString().split('T')[0],
-          nextConsultation: nextConsult.toISOString().split('T')[0],
-          status: data.status,
-        });
-      }
-    })
-    .catch((err) => {
-      console.error('Error loading plan:', err);
-      toast.error('Failed to load plan');
-    })
-    .finally(() => {
-      setLoading(false);
-    });
-}, [planId]);
+    if (!planId) return;
+    getActionPlanById(planId)
+      .then((data) => {
+        if (data) {
+          setPlan(data);
+          const startDate = (data.startDate as any)?.seconds
+            ? new Date((data.startDate as any).seconds * 1000)
+            : new Date(data.startDate);
+          const nextConsult = (data.nextConsultation as any)?.seconds
+            ? new Date((data.nextConsultation as any).seconds * 1000)
+            : new Date(data.nextConsultation);
+          setEditForm({
+            title: data.title,
+            startDate: startDate.toISOString().split('T')[0],
+            nextConsultation: nextConsult.toISOString().split('T')[0],
+            status: data.status,
+          });
+        }
+      })
+      .catch((err) => {
+        console.error('Error loading plan:', err);
+        toast.error('Failed to load plan');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [planId]);
+
+  const handleMarkReviewed = async () => {
+    if (!plan) return;
+    setMarkingReviewed(true);
+    try {
+      await updateActionPlan(planId, { planStatus: 'reviewed' });
+      setPlan((p) => p ? { ...p, planStatus: 'reviewed' } : p);
+      toast.success('Plan marked as reviewed ✅');
+    } catch {
+      toast.error('Failed to update plan status');
+    } finally {
+      setMarkingReviewed(false);
+    }
+  };
 
   const handleSavePlan = async () => {
     if (!plan) return;
@@ -88,10 +102,16 @@ export default function ActionPlanDetailPage() {
         nextConsultation: new Date(editForm.nextConsultation),
         status: editForm.status,
       });
-      setPlan((p) => p ? { ...p, ...editForm,
-        startDate: new Date(editForm.startDate),
-        nextConsultation: new Date(editForm.nextConsultation),
-      } : p);
+      setPlan((p) =>
+        p
+          ? {
+              ...p,
+              ...editForm,
+              startDate: new Date(editForm.startDate),
+              nextConsultation: new Date(editForm.nextConsultation),
+            }
+          : p
+      );
       toast.success('Plan updated!');
       setEditing(false);
     } catch {
@@ -113,15 +133,16 @@ export default function ActionPlanDetailPage() {
     };
     const updatedTasks = [...plan.tasks, task];
     await updateActionPlan(planId, { tasks: updatedTasks });
-    setPlan((p) => p ? { ...p, tasks: updatedTasks } : p);
-setNewTask({ title: '', description: '', category: 'exercise' });    toast.success('Task added!');
+    setPlan((p) => (p ? { ...p, tasks: updatedTasks } : p));
+    setNewTask({ title: '', description: '', category: 'exercise' });
+    toast.success('Task added!');
   };
 
   const handleRemoveTask = async (taskId: string) => {
     if (!plan) return;
     const updatedTasks = plan.tasks.filter((t) => t.id !== taskId);
     await updateActionPlan(planId, { tasks: updatedTasks });
-    setPlan((p) => p ? { ...p, tasks: updatedTasks } : p);
+    setPlan((p) => (p ? { ...p, tasks: updatedTasks } : p));
     toast.success('Task removed');
   };
 
@@ -133,7 +154,7 @@ setNewTask({ title: '', description: '', category: 'exercise' });    toast.succe
         : t
     );
     await updateActionPlan(planId, { tasks: updatedTasks });
-    setPlan((p) => p ? { ...p, tasks: updatedTasks } : p);
+    setPlan((p) => (p ? { ...p, tasks: updatedTasks } : p));
   };
 
   const handleDelete = async () => {
@@ -143,12 +164,20 @@ setNewTask({ title: '', description: '', category: 'exercise' });    toast.succe
     router.push('/consultant/action-plans');
   };
 
-  if (loading) return <div className="flex justify-center py-12"><LoadingSpinner /></div>;
+  if (loading)
+    return (
+      <div className="flex justify-center py-12">
+        <LoadingSpinner />
+      </div>
+    );
   if (!plan) return <div className="text-gray-500">Plan not found</div>;
 
-  const progress = plan.tasks.length > 0
-    ? Math.round((plan.tasks.filter((t) => t.completed).length / plan.tasks.length) * 100)
-    : 0;
+  const progress =
+    plan.tasks.length > 0
+      ? Math.round(
+          (plan.tasks.filter((t) => t.completed).length / plan.tasks.length) * 100
+        )
+      : 0;
 
   const startDate = (plan.startDate as any)?.seconds
     ? new Date((plan.startDate as any).seconds * 1000)
@@ -163,7 +192,10 @@ setNewTask({ title: '', description: '', category: 'exercise' });    toast.succe
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-8 no-print">
         <div>
-          <Link href="/consultant/action-plans" className="text-sm text-gray-500 hover:text-gray-700">
+          <Link
+            href="/consultant/action-plans"
+            className="text-sm text-gray-500 hover:text-gray-700"
+          >
             ← Back to Plans
           </Link>
           {editing ? (
@@ -177,8 +209,11 @@ setNewTask({ title: '', description: '', category: 'exercise' });    toast.succe
             <h1 className="text-2xl font-bold text-gray-900 mt-1">{plan.title}</h1>
           )}
           <p className="text-gray-500 text-sm">👤 {plan.clientName}</p>
+          {plan.programGoal && (
+            <p className="text-xs text-green-600 mt-0.5">🎯 {plan.programGoal}</p>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
           <button
             onClick={() => window.print()}
             className="text-sm px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
@@ -186,32 +221,96 @@ setNewTask({ title: '', description: '', category: 'exercise' });    toast.succe
             🖨️ Print
           </button>
           {!editing ? (
-            <Button onClick={() => setEditing(true)} variant="secondary">✏️ Edit</Button>
+            <Button onClick={() => setEditing(true)} variant="secondary">
+              ✏️ Edit
+            </Button>
           ) : (
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
-              <Button loading={saving} onClick={handleSavePlan}>Save</Button>
+              <Button variant="secondary" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+              <Button loading={saving} onClick={handleSavePlan}>
+                Save
+              </Button>
             </div>
           )}
-          <Button variant="danger" onClick={handleDelete}>Delete</Button>
+          <Button variant="danger" onClick={handleDelete}>
+            Delete
+          </Button>
         </div>
       </div>
 
       <div className="flex flex-col gap-6">
 
+        {/* Draft/Review Banner */}
+        {(!plan.planStatus || plan.planStatus === 'draft') && plan.planDays?.length > 0 && (
+          <div className="bg-orange-50 border border-orange-300 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 no-print">
+            <div>
+              <p className="text-sm font-semibold text-orange-800">
+                📋 This meal plan is saved as a Draft
+              </p>
+              <p className="text-xs text-orange-600 mt-0.5">
+                Review all AI-generated meals for clinical accuracy before marking as reviewed.
+                The client can see the plan but it shows as pending review.
+              </p>
+            </div>
+            <Button
+              onClick={handleMarkReviewed}
+              loading={markingReviewed}
+              className="shrink-0"
+            >
+              ✅ Mark as Reviewed
+            </Button>
+          </div>
+        )}
+
+        {plan.planStatus === 'reviewed' && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3 no-print">
+            <p className="text-sm text-green-700">
+              ✅ <strong>Reviewed</strong> — This meal plan has been clinically reviewed by the consultant.
+            </p>
+          </div>
+        )}
+
+        {/* TDEE Info */}
+        {plan.tdee > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 no-print">
+            <p className="text-sm font-semibold text-blue-900">
+              🔥 Client TDEE: {plan.tdee} kcal/day
+            </p>
+            <p className="text-xs text-blue-600 mt-0.5">
+              Calculated via Mifflin-St Jeor from client's age, height, weight and activity level
+            </p>
+          </div>
+        )}
+
         {/* Plan Info */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           {editing ? (
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Start Date" type="date" value={editForm.startDate}
-                onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))} />
-              <Input label="Next Consultation" type="date" value={editForm.nextConsultation}
-                onChange={(e) => setEditForm((p) => ({ ...p, nextConsultation: e.target.value }))} />
+              <Input
+                label="Start Date"
+                type="date"
+                value={editForm.startDate}
+                onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))}
+              />
+              <Input
+                label="Next Consultation"
+                type="date"
+                value={editForm.nextConsultation}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, nextConsultation: e.target.value }))
+                }
+              />
               <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-gray-700">Status</label>
-                <select value={editForm.status}
-                  onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value as any }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500">
+                <select
+                  value={editForm.status}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, status: e.target.value as any }))
+                  }
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
+                >
                   <option value="active">Active</option>
                   <option value="completed">Completed</option>
                   <option value="archived">Archived</option>
@@ -230,10 +329,15 @@ setNewTask({ title: '', description: '', category: 'exercise' });    toast.succe
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Status</p>
-                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                  plan.status === 'active' ? 'bg-green-100 text-green-700' :
-                  plan.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                  'bg-gray-100 text-gray-500'}`}>
+                <span
+                  className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    plan.status === 'active'
+                      ? 'bg-green-100 text-green-700'
+                      : plan.status === 'completed'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
                   {plan.status}
                 </span>
               </div>
@@ -241,10 +345,9 @@ setNewTask({ title: '', description: '', category: 'exercise' });    toast.succe
           )}
 
           {/* Progress Bar */}
-          {/* Progress Bar */}
-<div className="mt-4 no-print">
-  <div className="flex items-center justify-between mb-1">
-    <p className="text-sm text-gray-600">Overall Progress</p>
+          <div className="mt-4 no-print">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm text-gray-600">Task Progress</p>
               <p className="text-sm font-semibold text-green-600">{progress}%</p>
             </div>
             <div className="bg-gray-100 rounded-full h-3">
@@ -266,7 +369,8 @@ setNewTask({ title: '', description: '', category: 'exercise' });    toast.succe
           return (
             <div key={category} className="bg-white rounded-xl border border-gray-200 p-6">
               <h2 className="font-semibold text-gray-900 mb-3">
-                {categoryIcons[category]} {category.charAt(0).toUpperCase() + category.slice(1)}
+                {categoryIcons[category]}{' '}
+                {category.charAt(0).toUpperCase() + category.slice(1)}
               </h2>
               <div className="flex flex-col gap-2">
                 {categoryTasks.map((task) => (
@@ -281,7 +385,11 @@ setNewTask({ title: '', description: '', category: 'exercise' });    toast.succe
                       className="mt-0.5 w-4 h-4 accent-green-600 cursor-pointer"
                     />
                     <div className="flex-1">
-                      <p className={`text-sm font-medium ${task.completed ? 'line-through opacity-50' : ''}`}>
+                      <p
+                        className={`text-sm font-medium ${
+                          task.completed ? 'line-through opacity-50' : ''
+                        }`}
+                      >
                         {task.title}
                       </p>
                       {task.description && (
@@ -303,14 +411,21 @@ setNewTask({ title: '', description: '', category: 'exercise' });    toast.succe
 
         {/* Add Task */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 no-print">
-  <h2 className="font-semibold text-gray-900 mb-4">+ Add Task</h2>
+          <h2 className="font-semibold text-gray-900 mb-4">+ Add Task</h2>
           <div className="flex flex-col gap-3">
-            <Input label="Task Title" placeholder="e.g. Eat 5 portions of vegetables daily"
+            <Input
+              label="Task Title"
+              placeholder="e.g. Eat 5 portions of vegetables daily"
               value={newTask.title}
-              onChange={(e) => setNewTask((p) => ({ ...p, title: e.target.value }))} />
+              onChange={(e) => setNewTask((p) => ({ ...p, title: e.target.value }))}
+            />
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">Description (optional)</label>
-              <textarea rows={2} placeholder="Additional details..."
+              <label className="text-sm font-medium text-gray-700">
+                Description (optional)
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Additional details..."
                 value={newTask.description}
                 onChange={(e) => setNewTask((p) => ({ ...p, description: e.target.value }))}
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
@@ -319,9 +434,13 @@ setNewTask({ title: '', description: '', category: 'exercise' });    toast.succe
             <div className="flex gap-3">
               <div className="flex-1 flex flex-col gap-1">
                 <label className="text-sm font-medium text-gray-700">Category</label>
-                <select value={newTask.category}
-                  onChange={(e) => setNewTask((p) => ({ ...p, category: e.target.value as any }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500">
+                <select
+                  value={newTask.category}
+                  onChange={(e) =>
+                    setNewTask((p) => ({ ...p, category: e.target.value as any }))
+                  }
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
+                >
                   <option value="exercise">🏃 Exercise</option>
                   <option value="hydration">💧 Hydration</option>
                   <option value="lifestyle">🌿 Lifestyle</option>
@@ -335,36 +454,37 @@ setNewTask({ title: '', description: '', category: 'exercise' });    toast.succe
             </div>
           </div>
         </div>
+
         {/* Calorie Calculator */}
-<div className="no-print">
-  <button
-    onClick={() => setShowCalculator((p) => !p)}
-    className="w-full bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between hover:bg-gray-50 transition-all"
-  >
-    <span className="font-semibold text-gray-900">🧮 Calorie Calculator</span>
-    <span className="text-gray-400">{showCalculator ? '▲ Hide' : '▼ Show'}</span>
-  </button>
-  {showCalculator && (
-    <div className="mt-2">
-      <CalorieCalculator
-        compact
-        onSaveMeal={(meal) => {
-          toast.success(`${meal.name} — ${meal.totalCalories} kcal saved as reference`);
-        }}
-      />
-    </div>
-  )}
-</div>
+        <div className="no-print">
+          <button
+            onClick={() => setShowCalculator((p) => !p)}
+            className="w-full bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between hover:bg-gray-50 transition-all"
+          >
+            <span className="font-semibold text-gray-900">🧮 Calorie Calculator</span>
+            <span className="text-gray-400">{showCalculator ? '▲ Hide' : '▼ Show'}</span>
+          </button>
+          {showCalculator && (
+            <div className="mt-2">
+              <CalorieCalculator
+                compact
+                onSaveMeal={(meal) => {
+                  toast.success(`${meal.name} — ${meal.totalCalories} kcal saved as reference`);
+                }}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Print Styles */}
         <style jsx global>{`
-  @media print {
-    aside, nav, button, a, .no-print { display: none !important; }
-    main { padding: 0 !important; }
-    .rounded-xl { border-radius: 8px !important; }
-    body { font-size: 12px; }
-  }
-`}</style>
+          @media print {
+            aside, nav, button, a, .no-print { display: none !important; }
+            main { padding: 0 !important; }
+            .rounded-xl { border-radius: 8px !important; }
+            body { font-size: 12px; }
+          }
+        `}</style>
       </div>
     </div>
   );

@@ -1,12 +1,11 @@
-// This page allows consultants to create a new action plan for their clients. It includes a form to input plan details, select a program goal, set dates, and add tasks. The MealsBuilder component is integrated to generate meal plans based on the client's goal and consultation timeline. Upon submission, the plan is saved to Firestore and the consultant is redirected to the action plans list.
-//src/app/consultant/action-plans/new/page.tsx
+// src/app/consultant/action-plans/new/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { createActionPlan } from '@/lib/firestore';
-import { ActionPlanTask, PlanDay } from '@/lib/types';
+import { ActionPlanTask, PlanDay, ActivityLevel } from '@/lib/types';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import MealsBuilder from '@/components/consultant/MealsBuilder';
@@ -31,6 +30,31 @@ const PROGRAM_GOALS = [
   'Custom',
 ];
 
+const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, number> = {
+  sedentary: 1.2,
+  lightly_active: 1.375,
+  moderately_active: 1.55,
+  very_active: 1.725,
+  extra_active: 1.9,
+};
+
+function calculateTDEE(
+  gender: string,
+  age: number,
+  height: number,
+  weight: number,
+  activityLevel: ActivityLevel
+): number {
+  // Mifflin-St Jeor equation
+  let bmr = 0;
+  if (gender?.toLowerCase() === 'female') {
+    bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+  } else {
+    bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+  }
+  return Math.round(bmr * ACTIVITY_MULTIPLIERS[activityLevel]);
+}
+
 export default function NewActionPlanPage() {
   const { profile } = useAuth();
   const router = useRouter();
@@ -39,8 +63,20 @@ export default function NewActionPlanPage() {
   const clientName = searchParams.get('clientName') ?? '';
 
   const [loading, setLoading] = useState(false);
-  const [selectedGoal, setSelectedGoal] = useState('');
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [customGoal, setCustomGoal] = useState('');
+  const [planDays, setPlanDays] = useState<PlanDay[]>([]);
+  const [tasks, setTasks] = useState<ActionPlanTask[]>([]);
+  const [tdee, setTdee] = useState<number>(0);
+  const [clientData, setClientData] = useState<any>(null);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState(false);
+
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    category: 'exercise' as ActionPlanTask['category'],
+  });
 
   const [form, setForm] = useState({
     title: '',
@@ -53,15 +89,59 @@ export default function NewActionPlanPage() {
     targetWeight: '',
   });
 
-  const [planDays, setPlanDays] = useState<PlanDay[]>([]);
-  const [tasks, setTasks] = useState<ActionPlanTask[]>([]);
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    category: 'exercise' as ActionPlanTask['category'],
-  });
+  // Load client data to auto-calculate TDEE
+  useEffect(() => {
+    if (!clientId) return;
+    const fetchClient = async () => {
+      try {
+        const res = await fetch(`/api/get-client?clientId=${clientId}`);
+        if (res.ok) {
+          const client = await res.json();
+          setClientData(client);
+          if (client.gender && client.age && client.height && client.activityLevel) {
+            const weight = form.startWeight ? Number(form.startWeight) : 70;
+            const calculatedTdee = calculateTDEE(
+              client.gender,
+              Number(client.age),
+              Number(client.height),
+              weight,
+              client.activityLevel as ActivityLevel
+            );
+            setTdee(calculatedTdee);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load client:', err);
+      }
+    };
+    fetchClient();
+  }, [clientId]);
 
-  const programGoal = selectedGoal === 'Custom' ? customGoal : selectedGoal;
+  // Recalculate TDEE when startWeight changes
+  useEffect(() => {
+    if (!clientData || !form.startWeight) return;
+    if (clientData.gender && clientData.age && clientData.height && clientData.activityLevel) {
+      const calculatedTdee = calculateTDEE(
+        clientData.gender,
+        Number(clientData.age),
+        Number(clientData.height),
+        Number(form.startWeight),
+        clientData.activityLevel as ActivityLevel
+      );
+      setTdee(calculatedTdee);
+    }
+  }, [form.startWeight, clientData]);
+
+  const toggleGoal = (goal: string) => {
+    setSelectedGoals((prev) =>
+      prev.includes(goal) ? prev.filter((g) => g !== goal) : [...prev, goal]
+    );
+  };
+
+  const programGoal = [
+    ...selectedGoals.filter((g) => g !== 'Custom'),
+    ...(selectedGoals.includes('Custom') && customGoal ? [customGoal] : []),
+  ].join(' + ');
 
   const numberOfDays =
     form.startDate && form.nextConsultation
@@ -95,13 +175,8 @@ export default function NewActionPlanPage() {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doSave = async () => {
     if (!profile?.uid) return;
-    if (!form.clientId) {
-      toast.error('Please select a client');
-      return;
-    }
     setLoading(true);
     try {
       await createActionPlan({
@@ -110,6 +185,9 @@ export default function NewActionPlanPage() {
         clientName: form.clientName,
         title: form.title,
         programGoal,
+        programGoals: selectedGoals,
+        planStatus: 'draft',
+        tdee,
         startDate: new Date(form.startDate),
         nextConsultation: new Date(form.nextConsultation),
         status: form.status,
@@ -120,31 +198,97 @@ export default function NewActionPlanPage() {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-      toast.success('Action plan created!');
+      toast.success('Action plan saved as draft!');
       router.push('/consultant/action-plans');
     } catch {
       toast.error('Failed to create plan');
     } finally {
       setLoading(false);
+      setShowDisclaimer(false);
+      setPendingSubmit(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile?.uid) return;
+    if (!form.clientId) {
+      toast.error('Please select a client');
+      return;
+    }
+    if (selectedGoals.length === 0) {
+      toast.error('Please select at least one program goal');
+      return;
+    }
+
+    // Show disclaimer if meal plan was generated
+    if (planDays.length > 0) {
+      setShowDisclaimer(true);
+      setPendingSubmit(true);
+      return;
+    }
+
+    await doSave();
   };
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <Link
-          href="/consultant/action-plans"
-          className="text-sm text-gray-500 hover:text-gray-700"
-        >
+        <Link href="/consultant/action-plans" className="text-sm text-gray-500 hover:text-gray-700">
           ← Back to Action Plans
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">
-          New Action Plan
-        </h1>
-        {clientName && (
-          <p className="text-gray-500 mt-1">For {clientName}</p>
-        )}
+        <h1 className="text-2xl font-bold text-gray-900 mt-2">New Action Plan</h1>
+        {clientName && <p className="text-gray-500 mt-1">For {clientName}</p>}
       </div>
+
+      {/* Safety Disclaimer Modal */}
+      {showDisclaimer && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl">
+            <div className="text-center mb-4">
+              <span className="text-4xl">⚠️</span>
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-3 text-center">
+              Clinical Safety Reminder
+            </h3>
+            <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+              This meal plan was generated by AI. Before sharing with the client, please ensure:
+            </p>
+            <ul className="text-sm text-gray-600 mb-5 space-y-2">
+              <li className="flex items-start gap-2">
+                <span className="text-orange-500 mt-0.5">•</span>
+                You have reviewed all meals for nutritional adequacy
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-orange-500 mt-0.5">•</span>
+                Meals are appropriate for any clinical conditions (diabetes, heart disease, etc.)
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-orange-500 mt-0.5">•</span>
+                Calorie targets align with the client's actual needs
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-orange-500 mt-0.5">•</span>
+                A registered dietician has been consulted for clients with clinical conditions
+              </li>
+            </ul>
+            <p className="text-xs text-gray-400 mb-5 text-center">
+              The plan will be saved as a <strong>Draft</strong> until you mark it as Reviewed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowDisclaimer(false); setPendingSubmit(false); }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Go Back & Review
+              </button>
+              <Button onClick={doSave} loading={loading} className="flex-1">
+                Save as Draft
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
 
@@ -161,35 +305,41 @@ export default function NewActionPlanPage() {
             required
           />
 
-          {/* Program Goal */}
-          <div className="flex flex-col gap-1">
+          {/* Program Goals — Multi Select */}
+          <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700">
-              Program Goal
+              Program Goals{' '}
+              <span className="text-gray-400 font-normal">— select all that apply</span>
             </label>
             <div className="flex flex-wrap gap-2">
               {PROGRAM_GOALS.map((goal) => (
                 <button
                   key={goal}
                   type="button"
-                  onClick={() => setSelectedGoal(goal)}
+                  onClick={() => toggleGoal(goal)}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                    selectedGoal === goal
+                    selectedGoals.includes(goal)
                       ? 'bg-green-600 text-white border-green-600'
                       : 'bg-white text-gray-600 border-gray-300 hover:border-green-400'
                   }`}
                 >
-                  {goal}
+                  {selectedGoals.includes(goal) ? '✓ ' : ''}{goal}
                 </button>
               ))}
             </div>
-            {selectedGoal === 'Custom' && (
+            {selectedGoals.includes('Custom') && (
               <input
                 type="text"
                 placeholder="Describe your custom program goal..."
                 value={customGoal}
                 onChange={(e) => setCustomGoal(e.target.value)}
-                className="mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500"
+                className="mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500"
               />
+            )}
+            {selectedGoals.length > 0 && (
+              <p className="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1.5">
+                🎯 {programGoal}
+              </p>
             )}
           </div>
 
@@ -198,18 +348,14 @@ export default function NewActionPlanPage() {
               label="Start Date"
               type="date"
               value={form.startDate}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, startDate: e.target.value }))
-              }
+              onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
               required
             />
             <Input
               label="Next Consultation Date"
               type="date"
               value={form.nextConsultation}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, nextConsultation: e.target.value }))
-              }
+              onChange={(e) => setForm((p) => ({ ...p, nextConsultation: e.target.value }))}
               required
             />
           </div>
@@ -227,9 +373,7 @@ export default function NewActionPlanPage() {
               step="0.1"
               placeholder="e.g. 85.0"
               value={form.startWeight}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, startWeight: e.target.value }))
-              }
+              onChange={(e) => setForm((p) => ({ ...p, startWeight: e.target.value }))}
             />
             <Input
               label="Target Weight (kg)"
@@ -237,19 +381,58 @@ export default function NewActionPlanPage() {
               step="0.1"
               placeholder="e.g. 78.0"
               value={form.targetWeight}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, targetWeight: e.target.value }))
-              }
+              onChange={(e) => setForm((p) => ({ ...p, targetWeight: e.target.value }))}
             />
           </div>
+
+          {/* TDEE Display */}
+          {tdee > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-blue-900">
+                    🔥 Estimated Daily Calorie Need (TDEE)
+                  </p>
+                  <p className="text-xs text-blue-600 mt-0.5">
+                    Based on client's age, height, weight and activity level (Mifflin-St Jeor)
+                  </p>
+                </div>
+                <p className="text-2xl font-bold text-blue-700">{tdee} kcal</p>
+              </div>
+              {selectedGoals.includes('Weight loss') && (
+                <p className="text-xs text-orange-600 mt-2 bg-orange-50 rounded px-2 py-1">
+                  ⚡ Suggested deficit target: <strong>{tdee - 500} kcal/day</strong> (500 kcal deficit)
+                </p>
+              )}
+              {selectedGoals.includes('Muscle gain') && (
+                <p className="text-xs text-green-600 mt-2 bg-green-50 rounded px-2 py-1">
+                  ⚡ Suggested surplus target: <strong>{tdee + 300} kcal/day</strong> (300 kcal surplus)
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Missing client data warning */}
+          {clientId && !tdee && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
+              <p className="text-sm text-yellow-800 font-medium">⚠️ TDEE cannot be calculated</p>
+              <p className="text-xs text-yellow-600 mt-1">
+                Client is missing age, height, or activity level. Update the client profile to enable calorie targets.
+              </p>
+              <Link
+                href={`/consultant/clients/${clientId}`}
+                className="text-xs text-yellow-700 underline mt-1 inline-block"
+              >
+                Update client profile →
+              </Link>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">Status</label>
             <select
               value={form.status}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, status: e.target.value as any }))
-              }
+              onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as any }))}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="active">Active</option>
@@ -266,22 +449,33 @@ export default function NewActionPlanPage() {
               🍽️ Meals Builder
             </h2>
             {numberOfDays > 0 && (
-              <span className="text-xs text-gray-500">
-                {numberOfDays} days · 5 meals/day
-              </span>
+              <span className="text-xs text-gray-500">{numberOfDays} days · 5 meals/day</span>
             )}
           </div>
+
+          {/* Safety Notice */}
+          <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 mb-4">
+            <p className="text-xs text-orange-800">
+              <strong>⚠️ Clinical Notice:</strong> AI-generated meal plans are suggestions only.
+              Always review for nutritional adequacy before sharing with clients, especially those
+              with clinical conditions. Plans are saved as <strong>Draft</strong> until marked as Reviewed.
+            </p>
+          </div>
+
           {programGoal && (
             <p className="text-xs text-green-600 mb-4">
-              Goal: {programGoal}
+              Goal: {programGoal}{tdee > 0 && ` · TDEE: ${tdee} kcal`}
             </p>
           )}
+
           <MealsBuilder
             planDays={planDays}
             onChange={setPlanDays}
             startDate={form.startDate}
             nextConsultation={form.nextConsultation}
             programGoal={programGoal}
+            tdee={tdee}
+            selectedGoals={selectedGoals}
           />
         </div>
 
@@ -296,20 +490,14 @@ export default function NewActionPlanPage() {
               {tasks.map((task) => (
                 <div
                   key={task.id}
-                  className={`flex items-start justify-between rounded-lg border p-3 ${
-                    categoryColors[task.category]
-                  }`}
+                  className={`flex items-start justify-between rounded-lg border p-3 ${categoryColors[task.category]}`}
                 >
                   <div>
                     <p className="font-medium text-sm">{task.title}</p>
                     {task.description && (
-                      <p className="text-xs mt-0.5 opacity-75">
-                        {task.description}
-                      </p>
+                      <p className="text-xs mt-0.5 opacity-75">{task.description}</p>
                     )}
-                    <span className="text-xs capitalize opacity-60">
-                      {task.category}
-                    </span>
+                    <span className="text-xs capitalize opacity-60">{task.category}</span>
                   </div>
                   <button
                     type="button"
@@ -329,36 +517,23 @@ export default function NewActionPlanPage() {
               label="Task Title"
               placeholder="e.g. 30 min walk every morning"
               value={newTask.title}
-              onChange={(e) =>
-                setNewTask((p) => ({ ...p, title: e.target.value }))
-              }
+              onChange={(e) => setNewTask((p) => ({ ...p, title: e.target.value }))}
             />
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">
-                Description (optional)
-              </label>
+              <label className="text-sm font-medium text-gray-700">Description (optional)</label>
               <textarea
                 rows={2}
                 placeholder="Additional details..."
                 value={newTask.description}
-                onChange={(e) =>
-                  setNewTask((p) => ({ ...p, description: e.target.value }))
-                }
+                onChange={(e) => setNewTask((p) => ({ ...p, description: e.target.value }))}
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">
-                Category
-              </label>
+              <label className="text-sm font-medium text-gray-700">Category</label>
               <select
                 value={newTask.category}
-                onChange={(e) =>
-                  setNewTask((p) => ({
-                    ...p,
-                    category: e.target.value as any,
-                  }))
-                }
+                onChange={(e) => setNewTask((p) => ({ ...p, category: e.target.value as any }))}
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="exercise">🏃 Exercise</option>
