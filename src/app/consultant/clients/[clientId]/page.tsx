@@ -120,10 +120,11 @@ export default function ClientProfilePage() {
 
       // Update Firestore clients document
       await updateClient(clientId, {
-        ...form,
-        age: form.age ? Number(form.age) : undefined,
+  ...form,
+  age: form.age ? Number(form.age) : undefined,
   height: form.height ? Number(form.height) : undefined,
-      });
+  activityLevel: form.activityLevel as any,
+});
 
       setClient((prev) =>
         prev
