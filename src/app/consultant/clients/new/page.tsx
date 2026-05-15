@@ -8,6 +8,7 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { UnitSystem } from '@/lib/units';
 
 export default function NewClientPage() {
   const { profile, loading } = useAuth();
@@ -24,6 +25,7 @@ export default function NewClientPage() {
     age: '',
     height: '',
     activityLevel: '',
+    unitSystem: 'metric' as UnitSystem,
     medicalHistory: '',
     nutritionGoals: '',
     currentPlan: '',
@@ -31,13 +33,8 @@ export default function NewClientPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (!profile) {
-      router.push('/login');
-      return;
-    }
-    if (profile.role !== 'consultant') {
-      router.push('/client/dashboard');
-    }
+    if (!profile) { router.push('/login'); return; }
+    if (profile.role !== 'consultant') { router.push('/client/dashboard'); }
   }, [profile, loading, router]);
 
   const handleChange = (
@@ -50,7 +47,6 @@ export default function NewClientPage() {
     e.preventDefault();
     if (!profile?.uid) return;
     setSubmitting(true);
-
     try {
       const res = await fetch('/api/create-client', {
         method: 'POST',
@@ -62,10 +58,8 @@ export default function NewClientPage() {
           consultantId: profile.uid,
         }),
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-
       toast.success(`${form.name} has been added!`);
       router.push('/consultant/clients');
     } catch (err: unknown) {
@@ -114,12 +108,8 @@ export default function NewClientPage() {
               <Input label="Date of Birth" type="date" name="dob" value={form.dob} onChange={handleChange} />
               <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-gray-700">Gender</label>
-                <select
-                  name="gender"
-                  value={form.gender}
-                  onChange={handleChange}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
-                >
+                <select name="gender" value={form.gender} onChange={handleChange}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500">
                   <option value="">Select...</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
@@ -134,7 +124,7 @@ export default function NewClientPage() {
 
         <hr className="border-gray-100" />
 
-        {/* Body Metrics — needed for TDEE calculation */}
+        {/* Body Metrics */}
         <div>
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-1">
             Body Metrics
@@ -144,31 +134,19 @@ export default function NewClientPage() {
           </p>
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-4">
+              <Input label="Age" type="number" name="age" placeholder="e.g. 35"
+                value={form.age} onChange={handleChange} />
               <Input
-                label="Age"
-                type="number"
-                name="age"
-                placeholder="e.g. 35"
-                value={form.age}
-                onChange={handleChange}
-              />
-              <Input
-                label="Height (cm)"
-                type="number"
-                name="height"
-                placeholder="e.g. 165"
-                value={form.height}
-                onChange={handleChange}
+                label={form.unitSystem === 'imperial' ? 'Height (ft)' : 'Height (cm)'}
+                type="number" name="height"
+                placeholder={form.unitSystem === 'imperial' ? 'e.g. 5.5 (use decimal for inches)' : 'e.g. 165'}
+                value={form.height} onChange={handleChange}
               />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-700">Activity Level</label>
-              <select
-                name="activityLevel"
-                value={form.activityLevel}
-                onChange={handleChange}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
-              >
+              <select name="activityLevel" value={form.activityLevel} onChange={handleChange}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500">
                 <option value="">Select activity level...</option>
                 <option value="sedentary">Sedentary — little or no exercise</option>
                 <option value="lightly_active">Lightly active — 1–3 days/week</option>
@@ -176,6 +154,27 @@ export default function NewClientPage() {
                 <option value="very_active">Very active — 6–7 days/week</option>
                 <option value="extra_active">Extra active — physical job or 2x training</option>
               </select>
+            </div>
+
+            {/* Unit System Toggle */}
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700">Preferred Unit System</label>
+              <div className="flex gap-2">
+                {(['metric', 'imperial'] as const).map((unit) => (
+                  <button
+                    key={unit}
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, unitSystem: unit }))}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${
+                      form.unitSystem === unit
+                        ? 'bg-green-600 text-white border-green-600'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-green-400'
+                    }`}
+                  >
+                    {unit === 'metric' ? '🌍 Metric (kg, cm, g)' : '🇺🇸 Imperial (lb, ft, oz)'}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -190,36 +189,21 @@ export default function NewClientPage() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-700">Medical History</label>
-              <textarea
-                name="medicalHistory"
-                value={form.medicalHistory}
-                onChange={handleChange}
-                rows={3}
-                placeholder="Allergies, conditions, medications..."
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
-              />
+              <textarea name="medicalHistory" value={form.medicalHistory} onChange={handleChange}
+                rows={3} placeholder="Allergies, conditions, medications..."
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none" />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-700">Nutrition Goals</label>
-              <textarea
-                name="nutritionGoals"
-                value={form.nutritionGoals}
-                onChange={handleChange}
-                rows={3}
-                placeholder="Weight loss, muscle gain, manage diabetes..."
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
-              />
+              <textarea name="nutritionGoals" value={form.nutritionGoals} onChange={handleChange}
+                rows={3} placeholder="Weight loss, muscle gain, manage diabetes..."
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none" />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-700">Current Plan Notes</label>
-              <textarea
-                name="currentPlan"
-                value={form.currentPlan}
-                onChange={handleChange}
-                rows={2}
-                placeholder="Brief summary of current nutrition plan..."
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
-              />
+              <textarea name="currentPlan" value={form.currentPlan} onChange={handleChange}
+                rows={2} placeholder="Brief summary of current nutrition plan..."
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none" />
             </div>
           </div>
         </div>
@@ -229,9 +213,7 @@ export default function NewClientPage() {
             Create Client Account
           </Button>
           <Link href="/consultant/clients">
-            <Button type="button" variant="secondary">
-              Cancel
-            </Button>
+            <Button type="button" variant="secondary">Cancel</Button>
           </Link>
         </div>
       </form>

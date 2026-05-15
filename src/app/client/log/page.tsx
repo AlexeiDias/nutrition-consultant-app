@@ -1,8 +1,9 @@
-//src/app/client/log/page.tsx
+// src/app/client/log/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useUnits } from '@/context/UnitContext';
 import { createDailyLog } from '@/lib/firestore';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -10,31 +11,31 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import { weightLabel, waterLabel, toStorageWeight, toStorageWater } from '@/lib/units';
 
 export default function LogPage() {
   const { profile } = useAuth();
+  const { unitSystem } = useUnits();
   const router = useRouter();
   const [clientId, setClientId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
-  waterIntake: '',
-  weight: '',
-  symptoms: '',
-  mood: '',
-  exercise: '',
-  mealsExperience: '',
-  bowelMovement: '',
-  nightSleep: '',
-  notes: '',
-});
+    waterIntake: '',
+    weight: '',
+    symptoms: '',
+    mood: '',
+    exercise: '',
+    mealsExperience: '',
+    bowelMovement: '',
+    nightSleep: '',
+    notes: '',
+  });
+
   useEffect(() => {
     if (!profile?.uid) return;
     const fetchClientId = async () => {
-      const q = query(
-        collection(db, 'clients'),
-        where('clientUserId', '==', profile.uid)
-      );
+      const q = query(collection(db, 'clients'), where('clientUserId', '==', profile.uid));
       const snap = await getDocs(q);
       if (!snap.empty) setClientId(snap.docs[0].id);
     };
@@ -50,19 +51,20 @@ export default function LogPage() {
     setLoading(true);
     try {
       await createDailyLog({
-  clientId,
-  date: new Date(),
-  mealsExperience: form.mealsExperience,
-  waterIntake: Number(form.waterIntake),
-  weight: Number(form.weight),
-  symptoms: form.symptoms,
-  mood: form.mood,
-  exercise: form.exercise,
-  bowelMovement: form.bowelMovement,
-  nightSleep: form.nightSleep,
-  notes: form.notes,
-  reportSent: false,
-});
+        clientId,
+        date: new Date(),
+        mealsExperience: form.mealsExperience,
+        // Always store in metric units
+        waterIntake: form.waterIntake ? toStorageWater(Number(form.waterIntake), unitSystem) : 0,
+        weight: form.weight ? toStorageWeight(Number(form.weight), unitSystem) : 0,
+        symptoms: form.symptoms,
+        mood: form.mood,
+        exercise: form.exercise,
+        bowelMovement: form.bowelMovement,
+        nightSleep: form.nightSleep,
+        notes: form.notes,
+        reportSent: false,
+      });
       toast.success('Log saved successfully!');
       router.push('/client/dashboard');
     } catch (err: unknown) {
@@ -83,12 +85,12 @@ export default function LogPage() {
         <h1 className="text-2xl font-bold text-gray-900">Today's Log</h1>
         <p className="text-gray-500 mt-1">
           {new Date().toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
           })}
         </p>
+        <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full mt-1 inline-block">
+          {unitSystem === 'imperial' ? '🇺🇸 Imperial units' : '🌍 Metric units'}
+        </span>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -98,22 +100,22 @@ export default function LogPage() {
           <h2 className="font-semibold text-gray-900 mb-4">📏 Vitals</h2>
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Water Intake (Liters)"
+              label={`Water Intake (${waterLabel(unitSystem)})`}
               type="number"
               step="0.1"
-              placeholder="2.5"
+              placeholder={unitSystem === 'imperial' ? '84' : '2.5'}
               value={form.waterIntake}
               onChange={(e) => setForm((p) => ({ ...p, waterIntake: e.target.value }))}
             />
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-700">
-                Weight (kg){' '}
+                Weight ({weightLabel(unitSystem)}){' '}
                 <span className="text-gray-400 font-normal">— optional</span>
               </label>
               <input
                 type="number"
                 step="0.1"
-                placeholder="Only log if weighed today"
+                placeholder={unitSystem === 'imperial' ? 'e.g. 187.0' : 'Only log if weighed today'}
                 value={form.weight}
                 onChange={(e) => setForm((p) => ({ ...p, weight: e.target.value }))}
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500"
@@ -133,11 +135,9 @@ export default function LogPage() {
             {/* Mood */}
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-700">Mood</label>
-              <select
-                value={form.mood}
+              <select value={form.mood}
                 onChange={(e) => setForm((p) => ({ ...p, mood: e.target.value }))}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
-              >
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500">
                 <option value="">Select mood...</option>
                 <option value="Great">😄 Great</option>
                 <option value="Good">🙂 Good</option>
@@ -150,79 +150,55 @@ export default function LogPage() {
             {/* Symptoms */}
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-700">Symptoms</label>
-              <textarea
-                value={form.symptoms}
+              <textarea value={form.symptoms}
                 onChange={(e) => setForm((p) => ({ ...p, symptoms: e.target.value }))}
-                rows={2}
-                placeholder="Any bloating, headaches, fatigue..."
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
-              />
+                rows={2} placeholder="Any bloating, headaches, fatigue..."
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none" />
             </div>
 
             {/* Exercise */}
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-700">Exercise</label>
-              <textarea
-                value={form.exercise}
+              <textarea value={form.exercise}
                 onChange={(e) => setForm((p) => ({ ...p, exercise: e.target.value }))}
-                rows={2}
-                placeholder="Describe your exercise experience."
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
-              />
+                rows={2} placeholder="Describe your exercise experience."
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none" />
             </div>
 
             {/* Meals Experience */}
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-700">Meals</label>
-              <textarea
-                value={form.mealsExperience}
+              <textarea value={form.mealsExperience}
                 onChange={(e) => setForm((p) => ({ ...p, mealsExperience: e.target.value }))}
-                rows={3}
-                placeholder="Describe your meals experience today."
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
-              />
+                rows={3} placeholder="Describe your meals experience today."
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none" />
             </div>
 
             {/* Bowel Movement */}
-<div className="flex flex-col gap-1">
-  <label className="text-sm font-medium text-gray-700">
-    Bowel Movement
-  </label>
-  <textarea
-    value={form.bowelMovement}
-    onChange={(e) => setForm((p) => ({ ...p, bowelMovement: e.target.value }))}
-    rows={2}
-    placeholder="Any notes about your bowel movement today..."
-    className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
-  />
-</div>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700">Bowel Movement</label>
+              <textarea value={form.bowelMovement}
+                onChange={(e) => setForm((p) => ({ ...p, bowelMovement: e.target.value }))}
+                rows={2} placeholder="Any notes about your bowel movement today..."
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+            </div>
 
-{/* Night Sleep */}
-<div className="flex flex-col gap-1">
-  <label className="text-sm font-medium text-gray-700">
-    Night Sleep
-  </label>
-  <textarea
-    value={form.nightSleep}
-    onChange={(e) => setForm((p) => ({ ...p, nightSleep: e.target.value }))}
-    rows={2}
-    placeholder="How did you sleep last night? Hours, quality, any issues..."
-    className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
-  />
-</div>
+            {/* Night Sleep */}
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700">Night Sleep</label>
+              <textarea value={form.nightSleep}
+                onChange={(e) => setForm((p) => ({ ...p, nightSleep: e.target.value }))}
+                rows={2} placeholder="How did you sleep last night? Hours, quality, any issues..."
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+            </div>
 
             {/* Additional Notes */}
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">
-                Additional Notes
-              </label>
-              <textarea
-                value={form.notes}
+              <label className="text-sm font-medium text-gray-700">Additional Notes</label>
+              <textarea value={form.notes}
                 onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                rows={3}
-                placeholder="Anything else you'd like your consultant to know..."
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
-              />
+                rows={3} placeholder="Anything else you'd like your consultant to know..."
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none" />
             </div>
           </div>
         </div>

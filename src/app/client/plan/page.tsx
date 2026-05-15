@@ -1,13 +1,17 @@
+// src/app/client/plan/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useUnits } from '@/context/UnitContext';
 import { getActionPlansByClient, updateActionPlan } from '@/lib/firestore';
 import { ActionPlan } from '@/lib/types';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import UnitToggle from '@/components/client/UnitToggle';
 import { format } from 'date-fns';
+import { displayQuantity, displayWeight } from '@/lib/units';
 import toast from 'react-hot-toast';
 
 const categoryColors = {
@@ -24,6 +28,7 @@ const categoryIcons = {
 
 export default function ClientPlanPage() {
   const { profile } = useAuth();
+  const { unitSystem } = useUnits();
   const [plans, setPlans] = useState<ActionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
@@ -33,10 +38,7 @@ export default function ClientPlanPage() {
     if (!profile?.uid) return;
     const fetchPlans = async () => {
       try {
-        const q = query(
-          collection(db, 'clients'),
-          where('clientUserId', '==', profile.uid)
-        );
+        const q = query(collection(db, 'clients'), where('clientUserId', '==', profile.uid));
         const snap = await getDocs(q);
         if (!snap.empty) {
           const cId = snap.docs[0].id;
@@ -58,19 +60,11 @@ export default function ClientPlanPage() {
     try {
       const updatedTasks = plan.tasks.map((t) =>
         t.id === taskId
-          ? {
-              ...t,
-              completed: !t.completed,
-              completedAt: !t.completed ? new Date() : null,
-            }
+          ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date() : null }
           : t
       );
       await updateActionPlan(plan.id, { tasks: updatedTasks });
-      setPlans((prev) =>
-        prev.map((p) =>
-          p.id === plan.id ? { ...p, tasks: updatedTasks } : p
-        )
-      );
+      setPlans((prev) => prev.map((p) => p.id === plan.id ? { ...p, tasks: updatedTasks } : p));
       const task = updatedTasks.find((t) => t.id === taskId);
       toast.success(task?.completed ? '✅ Task completed!' : 'Task unmarked');
     } catch {
@@ -81,11 +75,7 @@ export default function ClientPlanPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <LoadingSpinner />
-      </div>
-    );
+    return <div className="flex justify-center py-12"><LoadingSpinner /></div>;
   }
 
   const activePlan = plans.find((p) => p.status === 'active');
@@ -96,23 +86,23 @@ export default function ClientPlanPage() {
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">My Action Plan</h1>
-        <p className="text-gray-500 mt-1">
-          Follow your consultant's recommendations
-        </p>
+        <p className="text-gray-500 mt-1">Follow your consultant's recommendations</p>
+      </div>
+
+      {/* Unit Toggle */}
+      <div className="mb-6 no-print">
+        <UnitToggle />
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6 no-print">
         {(['active', 'history'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+          <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab
                 ? 'bg-green-600 text-white'
                 : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
-          >
+            }`}>
             {tab === 'active' ? '📋 Current Plan' : '📅 History'}
           </button>
         ))}
@@ -126,9 +116,7 @@ export default function ClientPlanPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {activePlan.title}
-                  </h2>
+                  <h2 className="text-xl font-bold text-gray-900">{activePlan.title}</h2>
                   {activePlan.programGoal && (
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium mt-1 inline-block">
                       🎯 {activePlan.programGoal}
@@ -144,10 +132,8 @@ export default function ClientPlanPage() {
                     )}
                   </p>
                 </div>
-                <button
-                  onClick={() => window.print()}
-                  className="no-print text-sm px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
-                >
+                <button onClick={() => window.print()}
+                  className="no-print text-sm px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
                   🖨️ Print
                 </button>
               </div>
@@ -169,83 +155,52 @@ export default function ClientPlanPage() {
               )}
 
               {/* Day Countdown Progress Bar */}
-              {activePlan.nextConsultation &&
-                (() => {
-                  const startDate = (activePlan.startDate as any)?.seconds
-                    ? new Date((activePlan.startDate as any).seconds * 1000)
-                    : new Date(activePlan.startDate);
-                  const nextDate = (activePlan.nextConsultation as any)?.seconds
-                    ? new Date((activePlan.nextConsultation as any).seconds * 1000)
-                    : new Date(activePlan.nextConsultation);
-                  const totalDays = Math.ceil(
-                    (nextDate.getTime() - startDate.getTime()) /
-                      (1000 * 60 * 60 * 24)
-                  );
-                  const daysElapsed = Math.ceil(
-                    (new Date().getTime() - startDate.getTime()) /
-                      (1000 * 60 * 60 * 24)
-                  );
-                  const daysLeft = Math.max(0, totalDays - daysElapsed);
-                  const dayProgress = Math.min(
-                    100,
-                    Math.round((daysElapsed / totalDays) * 100)
-                  );
-
-                  return (
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-medium text-gray-700">
-                          📅 Program Progress
-                        </p>
-                        <p className="text-sm font-bold text-orange-600">
-                          {daysLeft > 0 ? `${daysLeft} days left` : 'Last day!'}
-                        </p>
-                      </div>
-                      <div className="bg-gray-100 rounded-full h-3">
-                        <div
-                          className="bg-orange-400 h-3 rounded-full transition-all duration-700"
-                          style={{ width: `${dayProgress}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Day {Math.min(daysElapsed, totalDays)} of {totalDays} ·
-                        Next consultation: {format(nextDate, 'MMM d, yyyy')}
+              {activePlan.nextConsultation && (() => {
+                const startDate = (activePlan.startDate as any)?.seconds
+                  ? new Date((activePlan.startDate as any).seconds * 1000)
+                  : new Date(activePlan.startDate);
+                const nextDate = (activePlan.nextConsultation as any)?.seconds
+                  ? new Date((activePlan.nextConsultation as any).seconds * 1000)
+                  : new Date(activePlan.nextConsultation);
+                const totalDays = Math.ceil((nextDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                const daysElapsed = Math.ceil((new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                const daysLeft = Math.max(0, totalDays - daysElapsed);
+                const dayProgress = Math.min(100, Math.round((daysElapsed / totalDays) * 100));
+                return (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-medium text-gray-700">📅 Program Progress</p>
+                      <p className="text-sm font-bold text-orange-600">
+                        {daysLeft > 0 ? `${daysLeft} days left` : 'Last day!'}
                       </p>
                     </div>
-                  );
-                })()}
+                    <div className="bg-gray-100 rounded-full h-3">
+                      <div className="bg-orange-400 h-3 rounded-full transition-all duration-700"
+                        style={{ width: `${dayProgress}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Day {Math.min(daysElapsed, totalDays)} of {totalDays} ·
+                      Next consultation: {format(nextDate, 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                );
+              })()}
 
               {/* Task Completion Progress Bar */}
               {activePlan.tasks.length > 0 && (
                 <div className="no-print">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-medium text-gray-700">
-                      ✅ Task Completion
-                    </p>
+                    <p className="text-sm font-medium text-gray-700">✅ Task Completion</p>
                     <p className="text-sm font-bold text-green-600">
-                      {Math.round(
-                        (activePlan.tasks.filter((t) => t.completed).length /
-                          activePlan.tasks.length) *
-                          100
-                      )}
-                      %
+                      {Math.round((activePlan.tasks.filter((t) => t.completed).length / activePlan.tasks.length) * 100)}%
                     </p>
                   </div>
                   <div className="bg-gray-100 rounded-full h-3">
-                    <div
-                      className="bg-green-500 h-3 rounded-full transition-all duration-700"
-                      style={{
-                        width: `${Math.round(
-                          (activePlan.tasks.filter((t) => t.completed).length /
-                            activePlan.tasks.length) *
-                            100
-                        )}%`,
-                      }}
-                    />
+                    <div className="bg-green-500 h-3 rounded-full transition-all duration-700"
+                      style={{ width: `${Math.round((activePlan.tasks.filter((t) => t.completed).length / activePlan.tasks.length) * 100)}%` }} />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    {activePlan.tasks.filter((t) => t.completed).length} of{' '}
-                    {activePlan.tasks.length} tasks completed
+                    {activePlan.tasks.filter((t) => t.completed).length} of {activePlan.tasks.length} tasks completed
                   </p>
                 </div>
               )}
@@ -257,7 +212,7 @@ export default function ClientPlanPage() {
                 {activePlan.startWeight && (
                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
                     <p className="text-lg font-bold text-purple-700">
-                      {activePlan.startWeight}kg
+                      {displayWeight(activePlan.startWeight, unitSystem)}
                     </p>
                     <p className="text-xs text-purple-500">Starting Weight</p>
                   </div>
@@ -265,7 +220,7 @@ export default function ClientPlanPage() {
                 {activePlan.targetWeight && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
                     <p className="text-lg font-bold text-green-700">
-                      {activePlan.targetWeight}kg
+                      {displayWeight(activePlan.targetWeight, unitSystem)}
                     </p>
                     <p className="text-xs text-green-500">Target Weight</p>
                   </div>
@@ -276,27 +231,19 @@ export default function ClientPlanPage() {
             {/* Day-by-Day Meal Plan */}
             {activePlan.planDays && activePlan.planDays.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h3 className="font-semibold text-gray-900 mb-4">
-                  🍽️ Your Meal Plan
-                </h3>
+                <h3 className="font-semibold text-gray-900 mb-4">🍽️ Your Meal Plan</h3>
                 <div className="flex flex-col gap-3">
                   {activePlan.planDays.map((day, idx) => (
-                    <div
-                      key={idx}
-                      className="border border-gray-200 rounded-xl overflow-hidden"
-                    >
+                    <div key={idx} className="border border-gray-200 rounded-xl overflow-hidden">
                       <div className="bg-gray-50 px-4 py-3 flex items-center gap-3">
                         <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold text-sm">
                           {day.day}
                         </div>
                         <div>
-                          <p className="font-semibold text-gray-900 text-sm">
-                            Day {day.day}
-                          </p>
+                          <p className="font-semibold text-gray-900 text-sm">Day {day.day}</p>
                           <p className="text-xs text-gray-500">
                             {format(new Date(day.date), 'EEEE, MMM d')} ·{' '}
-                            {day.meals.reduce((s, m) => s + m.totalCalories, 0)}{' '}
-                            kcal total
+                            {day.meals.reduce((s, m) => s + m.totalCalories, 0)} kcal total
                           </p>
                         </div>
                       </div>
@@ -307,13 +254,9 @@ export default function ClientPlanPage() {
                               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                                 {meal.slot}
                               </p>
-                              <span className="text-xs text-gray-400">
-                                {meal.totalCalories} kcal
-                              </span>
+                              <span className="text-xs text-gray-400">{meal.totalCalories} kcal</span>
                             </div>
-                            <p className="text-sm font-medium text-gray-900 mb-1">
-                              {meal.name}
-                            </p>
+                            <p className="text-sm font-medium text-gray-900 mb-1">{meal.name}</p>
                             <div className="flex gap-2 flex-wrap">
                               {meal.totalProtein > 0 && (
                                 <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
@@ -335,7 +278,7 @@ export default function ClientPlanPage() {
                               <div className="mt-2 flex flex-col gap-0.5">
                                 {meal.ingredients.map((ing) => (
                                   <p key={ing.id} className="text-xs text-gray-500">
-                                    · {ing.name} ({ing.quantity}g)
+                                    · {ing.name} ({displayQuantity(ing.quantity, unitSystem)})
                                   </p>
                                 ))}
                               </div>
@@ -351,57 +294,35 @@ export default function ClientPlanPage() {
 
             {/* Tasks by Category */}
             {categories.map((category) => {
-              const categoryTasks = activePlan.tasks.filter(
-                (t) => t.category === category
-              );
+              const categoryTasks = activePlan.tasks.filter((t) => t.category === category);
               if (categoryTasks.length === 0) return null;
               const completed = categoryTasks.filter((t) => t.completed).length;
-
               return (
-                <div
-                  key={category}
-                  className="bg-white rounded-xl border border-gray-200 p-6"
-                >
+                <div key={category} className="bg-white rounded-xl border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold text-gray-900">
                       {categoryIcons[category]}{' '}
                       {category.charAt(0).toUpperCase() + category.slice(1)}
                     </h3>
-                    <span className="text-xs text-gray-500 no-print">
-                      {completed}/{categoryTasks.length}
-                    </span>
+                    <span className="text-xs text-gray-500 no-print">{completed}/{categoryTasks.length}</span>
                   </div>
                   <div className="flex flex-col gap-2">
                     {categoryTasks.map((task) => (
-                      <div
-                        key={task.id}
+                      <div key={task.id}
                         className={`flex items-start gap-3 p-3 rounded-lg border transition-all
                           ${categoryColors[category]}
                           ${task.completed ? 'opacity-60' : ''}
                           ${togglingTask === task.id ? 'animate-pulse' : 'cursor-pointer'}`}
-                        onClick={() =>
-                          togglingTask !== task.id &&
-                          handleToggleTask(activePlan, task.id)
-                        }
+                        onClick={() => togglingTask !== task.id && handleToggleTask(activePlan, task.id)}
                       >
-                        <input
-                          type="checkbox"
-                          checked={task.completed}
-                          onChange={() => {}}
-                          className="mt-0.5 w-4 h-4 accent-green-600"
-                        />
+                        <input type="checkbox" checked={task.completed} onChange={() => {}}
+                          className="mt-0.5 w-4 h-4 accent-green-600" />
                         <div>
-                          <p
-                            className={`text-sm font-medium ${
-                              task.completed ? 'line-through' : ''
-                            }`}
-                          >
+                          <p className={`text-sm font-medium ${task.completed ? 'line-through' : ''}`}>
                             {task.title}
                           </p>
                           {task.description && (
-                            <p className="text-xs opacity-70 mt-0.5">
-                              {task.description}
-                            </p>
+                            <p className="text-xs opacity-70 mt-0.5">{task.description}</p>
                           )}
                         </div>
                       </div>
@@ -429,48 +350,30 @@ export default function ClientPlanPage() {
             </div>
           ) : (
             historyPlans.map((plan) => {
-              const progress =
-                plan.tasks.length > 0
-                  ? Math.round(
-                      (plan.tasks.filter((t) => t.completed).length /
-                        plan.tasks.length) *
-                        100
-                    )
-                  : 0;
+              const progress = plan.tasks.length > 0
+                ? Math.round((plan.tasks.filter((t) => t.completed).length / plan.tasks.length) * 100)
+                : 0;
               return (
-                <div
-                  key={plan.id}
-                  className="bg-white rounded-xl border border-gray-200 p-5"
-                >
+                <div key={plan.id} className="bg-white rounded-xl border border-gray-200 p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h3 className="font-semibold text-gray-900">{plan.title}</h3>
                       {plan.programGoal && (
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          🎯 {plan.programGoal}
-                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">🎯 {plan.programGoal}</p>
                       )}
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium mt-1 inline-block ${
-                          plan.status === 'completed'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium mt-1 inline-block ${
+                        plan.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                      }`}>
                         {plan.status}
                       </span>
                     </div>
                     <p className="text-2xl font-bold text-green-600">{progress}%</p>
                   </div>
                   <div className="bg-gray-100 rounded-full h-2">
-                    <div
-                      className="bg-green-400 h-2 rounded-full transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
+                    <div className="bg-green-400 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    {plan.tasks.filter((t) => t.completed).length}/
-                    {plan.tasks.length} tasks completed
+                    {plan.tasks.filter((t) => t.completed).length}/{plan.tasks.length} tasks completed
                   </p>
                 </div>
               );
@@ -481,17 +384,9 @@ export default function ClientPlanPage() {
 
       <style jsx global>{`
         @media print {
-          aside,
-          nav,
-          .no-print {
-            display: none !important;
-          }
-          main {
-            padding: 0 !important;
-          }
-          body {
-            font-size: 12px;
-          }
+          aside, nav, .no-print { display: none !important; }
+          main { padding: 0 !important; }
+          body { font-size: 12px; }
         }
       `}</style>
     </div>
