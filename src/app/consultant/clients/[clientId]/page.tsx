@@ -127,15 +127,16 @@ export default function ClientProfilePage() {
 });
 
       setClient((prev) =>
-        prev
-          ? {
-              ...prev,
-              ...form,
-              age: form.age ? Number(form.age) : prev.age,
-              height: form.height ? Number(form.height) : prev.height,
-            }
-          : prev
-      );
+  prev
+    ? {
+        ...prev,
+        ...form,
+        age: form.age ? Number(form.age) : prev.age,
+        height: form.height ? Number(form.height) : prev.height,
+        activityLevel: form.activityLevel as any,
+      }
+    : prev
+);
       toast.success('Client updated!');
       setEditing(false);
     } catch (err: unknown) {
