@@ -1,5 +1,5 @@
 // Consultant-side client profile page where consultants can view and edit client information, see recent logs, and access action plans
-//src/app/consultant/clients/[clientId]/page.tsx
+// src/app/consultant/clients/[clientId]/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,6 +12,7 @@ import Link from 'next/link';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { UnitSystem, displayWeight, displayHeight } from '@/lib/units';
 
 const ACTIVITY_LABELS: Record<string, string> = {
   sedentary: 'Sedentary — little or no exercise',
@@ -64,6 +65,7 @@ export default function ClientProfilePage() {
     age: '',
     height: '',
     activityLevel: '',
+    unitSystem: 'metric' as UnitSystem,
     medicalHistory: '',
     nutritionGoals: '',
     currentPlan: '',
@@ -88,6 +90,7 @@ export default function ClientProfilePage() {
           age: clientData.age ? String(clientData.age) : '',
           height: clientData.height ? String(clientData.height) : '',
           activityLevel: clientData.activityLevel ?? '',
+          unitSystem: (clientData.unitSystem as UnitSystem) ?? 'metric',
           medicalHistory: clientData.medicalHistory ?? '',
           nutritionGoals: clientData.nutritionGoals ?? '',
           currentPlan: clientData.currentPlan ?? '',
@@ -104,7 +107,6 @@ export default function ClientProfilePage() {
     if (!clientId) return;
     setSaving(true);
     try {
-      // If email changed, update Firebase Auth + users collection via API
       if (client?.email !== form.email) {
         const res = await fetch('/api/update-client-email', {
           method: 'POST',
@@ -118,25 +120,26 @@ export default function ClientProfilePage() {
         if (!res.ok) throw new Error(data.error);
       }
 
-      // Update Firestore clients document
       await updateClient(clientId, {
-  ...form,
-  age: form.age ? Number(form.age) : undefined,
-  height: form.height ? Number(form.height) : undefined,
-  activityLevel: form.activityLevel as any,
-});
+        ...form,
+        age: form.age ? Number(form.age) : undefined,
+        height: form.height ? Number(form.height) : undefined,
+        activityLevel: form.activityLevel as any,
+        unitSystem: form.unitSystem,
+      });
 
       setClient((prev) =>
-  prev
-    ? {
-        ...prev,
-        ...form,
-        age: form.age ? Number(form.age) : prev.age,
-        height: form.height ? Number(form.height) : prev.height,
-        activityLevel: form.activityLevel as any,
-      }
-    : prev
-);
+        prev
+          ? {
+              ...prev,
+              ...form,
+              age: form.age ? Number(form.age) : prev.age,
+              height: form.height ? Number(form.height) : prev.height,
+              activityLevel: form.activityLevel as any,
+              unitSystem: form.unitSystem,
+            }
+          : prev
+      );
       toast.success('Client updated!');
       setEditing(false);
     } catch (err: unknown) {
@@ -157,8 +160,8 @@ export default function ClientProfilePage() {
 
   const activePlan = plans.find((p) => p.status === 'active');
   const recentLog = logs[0];
+  const clientUnitSystem: UnitSystem = (client.unitSystem as UnitSystem) ?? 'metric';
 
-  // Calculate TDEE if we have all the data
   const latestWeight = recentLog?.weight || null;
   const tdee =
     client.gender && client.age && client.height && latestWeight && client.activityLevel
@@ -182,21 +185,15 @@ export default function ClientProfilePage() {
           <p className="text-gray-500 text-sm truncate">{client.email}</p>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
-          <Link
-            href={`/consultant/action-plans/new?clientId=${clientId}&clientName=${client.name}`}
-          >
+          <Link href={`/consultant/action-plans/new?clientId=${clientId}&clientName=${client.name}`}>
             <Button variant="secondary">📋 New Plan</Button>
           </Link>
           {!editing ? (
             <Button onClick={() => setEditing(true)}>✏️ Edit</Button>
           ) : (
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setEditing(false)}>
-                Cancel
-              </Button>
-              <Button loading={saving} onClick={handleSave}>
-                Save
-              </Button>
+              <Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
+              <Button loading={saving} onClick={handleSave}>Save</Button>
             </div>
           )}
         </div>
@@ -216,9 +213,9 @@ export default function ClientProfilePage() {
           </div>
           <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 text-center">
             <p className="text-2xl font-bold text-purple-700">
-              {recentLog?.weight ?? '—'}
+              {latestWeight ? displayWeight(latestWeight, clientUnitSystem) : '—'}
             </p>
-            <p className="text-xs text-purple-600">Latest Weight (kg)</p>
+            <p className="text-xs text-purple-600">Latest Weight</p>
           </div>
         </div>
 
@@ -245,37 +242,21 @@ export default function ClientProfilePage() {
           {editing ? (
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Full Name"
-                  value={form.name}
-                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                />
-                <Input
-                  label="Phone"
-                  value={form.phone}
-                  onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                />
+                <Input label="Full Name" value={form.name}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+                <Input label="Phone" value={form.phone}
+                  onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
               </div>
-              <Input
-                label="Email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-              />
+              <Input label="Email" type="email" value={form.email}
+                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
               <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Date of Birth"
-                  type="date"
-                  value={form.dob}
-                  onChange={(e) => setForm((p) => ({ ...p, dob: e.target.value }))}
-                />
+                <Input label="Date of Birth" type="date" value={form.dob}
+                  onChange={(e) => setForm((p) => ({ ...p, dob: e.target.value }))} />
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-700">Gender</label>
-                  <select
-                    value={form.gender}
+                  <select value={form.gender}
                     onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
-                  >
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500">
                     <option value="">Select...</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
@@ -313,28 +294,18 @@ export default function ClientProfilePage() {
           {editing ? (
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Age"
-                  type="number"
-                  placeholder="e.g. 35"
+                <Input label="Age" type="number" placeholder="e.g. 35"
                   value={form.age}
-                  onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
-                />
-                <Input
-                  label="Height (cm)"
-                  type="number"
-                  placeholder="e.g. 165"
+                  onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))} />
+                <Input label="Height (cm)" type="number" placeholder="e.g. 165"
                   value={form.height}
-                  onChange={(e) => setForm((p) => ({ ...p, height: e.target.value }))}
-                />
+                  onChange={(e) => setForm((p) => ({ ...p, height: e.target.value }))} />
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-gray-700">Activity Level</label>
-                <select
-                  value={form.activityLevel}
+                <select value={form.activityLevel}
                   onChange={(e) => setForm((p) => ({ ...p, activityLevel: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500"
-                >
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-green-500">
                   <option value="">Select activity level...</option>
                   <option value="sedentary">Sedentary — little or no exercise</option>
                   <option value="lightly_active">Lightly active — 1–3 days/week</option>
@@ -343,17 +314,44 @@ export default function ClientProfilePage() {
                   <option value="extra_active">Extra active — physical job or 2x training</option>
                 </select>
               </div>
+
+              {/* Unit System Toggle */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-gray-700">
+                  Preferred Unit System
+                </label>
+                <div className="flex gap-2">
+                  {(['metric', 'imperial'] as const).map((unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      onClick={() => setForm((p) => ({ ...p, unitSystem: unit }))}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${
+                        form.unitSystem === unit
+                          ? 'bg-green-600 text-white border-green-600'
+                          : 'bg-white text-gray-600 border-gray-300 hover:border-green-400'
+                      }`}
+                    >
+                      {unit === 'metric' ? '🌍 Metric (kg, cm, g)' : '🇺🇸 Imperial (lb, ft, oz)'}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="text-xs text-gray-500">Age</p>
-                <p className="text-gray-900 font-medium">{client.age ? `${client.age} yrs` : '—'}</p>
+                <p className="text-gray-900 font-medium">
+                  {client.age ? `${client.age} yrs` : '—'}
+                </p>
               </div>
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="text-xs text-gray-500">Height</p>
                 <p className="text-gray-900 font-medium">
-                  {client.height ? `${client.height} cm` : '—'}
+                  {client.height
+                    ? displayHeight(Number(client.height), clientUnitSystem)
+                    : '—'}
                 </p>
               </div>
               <div className="bg-gray-50 rounded-lg p-3">
@@ -362,6 +360,14 @@ export default function ClientProfilePage() {
                   {client.activityLevel
                     ? ACTIVITY_LABELS[client.activityLevel] ?? client.activityLevel
                     : '—'}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs text-gray-500">Units</p>
+                <p className="text-gray-900 font-medium text-xs">
+                  {clientUnitSystem === 'imperial'
+                    ? '🇺🇸 Imperial'
+                    : '🌍 Metric'}
                 </p>
               </div>
             </div>
@@ -376,31 +382,16 @@ export default function ClientProfilePage() {
           {editing ? (
             <div className="flex flex-col gap-4">
               {[
-                {
-                  label: 'Medical History',
-                  key: 'medicalHistory',
-                  placeholder: 'Allergies, conditions, medications...',
-                },
-                {
-                  label: 'Nutrition Goals',
-                  key: 'nutritionGoals',
-                  placeholder: 'Weight loss, muscle gain...',
-                },
-                {
-                  label: 'Current Plan Notes',
-                  key: 'currentPlan',
-                  placeholder: 'Brief plan summary...',
-                },
+                { label: 'Medical History', key: 'medicalHistory', placeholder: 'Allergies, conditions, medications...' },
+                { label: 'Nutrition Goals', key: 'nutritionGoals', placeholder: 'Weight loss, muscle gain...' },
+                { label: 'Current Plan Notes', key: 'currentPlan', placeholder: 'Brief plan summary...' },
               ].map((field) => (
                 <div key={field.key} className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-700">{field.label}</label>
-                  <textarea
-                    rows={3}
-                    placeholder={field.placeholder}
-                    value={form[field.key as keyof typeof form]}
+                  <textarea rows={3} placeholder={field.placeholder}
+                    value={form[field.key as keyof typeof form] as string}
                     onChange={(e) => setForm((p) => ({ ...p, [field.key]: e.target.value }))}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none"
-                  />
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500 resize-none" />
                 </div>
               ))}
             </div>
@@ -427,10 +418,8 @@ export default function ClientProfilePage() {
               <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                 Active Action Plan
               </h2>
-              <Link
-                href={`/consultant/action-plans/${activePlan.id}`}
-                className="text-sm text-green-600 hover:underline"
-              >
+              <Link href={`/consultant/action-plans/${activePlan.id}`}
+                className="text-sm text-green-600 hover:underline">
                 View Full Plan →
               </Link>
             </div>
@@ -440,24 +429,15 @@ export default function ClientProfilePage() {
             )}
             <div className="flex items-center gap-2">
               <div className="flex-1 bg-gray-100 rounded-full h-2">
-                <div
-                  className="bg-green-500 h-2 rounded-full transition-all"
+                <div className="bg-green-500 h-2 rounded-full transition-all"
                   style={{
-                    width: `${
-                      activePlan.tasks.length > 0
-                        ? Math.round(
-                            (activePlan.tasks.filter((t) => t.completed).length /
-                              activePlan.tasks.length) *
-                              100
-                          )
-                        : 0
-                    }%`,
-                  }}
-                />
+                    width: `${activePlan.tasks.length > 0
+                      ? Math.round((activePlan.tasks.filter((t) => t.completed).length / activePlan.tasks.length) * 100)
+                      : 0}%`,
+                  }} />
               </div>
               <span className="text-sm text-gray-500">
-                {activePlan.tasks.filter((t) => t.completed).length}/{activePlan.tasks.length}{' '}
-                tasks
+                {activePlan.tasks.filter((t) => t.completed).length}/{activePlan.tasks.length} tasks
               </span>
             </div>
           </div>
@@ -475,27 +455,21 @@ export default function ClientProfilePage() {
                   ? new Date((log.date as any).seconds * 1000)
                   : new Date(log.date);
                 return (
-                  <div
-                    key={log.id}
-                    className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3"
-                  >
+                  <div key={log.id}
+                    className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
                     <div>
                       <p className="text-sm font-medium text-gray-900">
                         {format(logDate, 'EEE, MMM d')}
                       </p>
                       <p className="text-xs text-gray-500">
                         {log.waterIntake}L water ·{' '}
-                        {log.weight ? `${log.weight}kg` : 'no weight'} ·{' '}
+                        {log.weight ? displayWeight(log.weight, clientUnitSystem) : 'no weight'} ·{' '}
                         {log.mood || '—'}
                       </p>
                     </div>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        log.reportSent
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      log.reportSent ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}>
                       {log.reportSent ? '📬 Sent' : '📝 Draft'}
                     </span>
                   </div>
