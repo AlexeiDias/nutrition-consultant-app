@@ -152,3 +152,24 @@ export interface PlanDay {
   date: string;
   meals: MealItem[];
 }
+
+export type UnitSystem = 'metric' | 'imperial';
+
+export interface Client {
+  id: string;
+  consultantId: string;
+  clientUserId: string;
+  name: string;
+  email: string;
+  dob: string;
+  gender: string;
+  phone: string;
+  age: number;
+  height: number;
+  activityLevel: ActivityLevel | '';
+  unitSystem: UnitSystem;
+  medicalHistory: string;
+  nutritionGoals: string;
+  currentPlan: string;
+  createdAt: Date;
+}
