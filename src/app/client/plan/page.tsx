@@ -10,6 +10,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import UnitToggle from '@/components/client/UnitToggle';
+import ExportPDFButton from '@/components/ui/ExportPDFButton';
 import { format } from 'date-fns';
 import { displayQuantity, displayWeight } from '@/lib/units';
 import toast from 'react-hot-toast';
@@ -132,10 +133,13 @@ export default function ClientPlanPage() {
                     )}
                   </p>
                 </div>
-                <button onClick={() => window.print()}
-                  className="no-print text-sm px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
-                  🖨️ Print
-                </button>
+                <div className="flex gap-2 no-print">
+                  <button onClick={() => window.print()}
+                    className="text-sm px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
+                    🖨️ Print
+                  </button>
+                  <ExportPDFButton plan={activePlan} />
+                </div>
               </div>
 
               {/* Plan Status Badge */}

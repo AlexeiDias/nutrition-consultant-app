@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import toast from 'react-hot-toast';
 import CalorieCalculator from '@/components/consultant/CalorieCalculator';
+import ExportPDFButton from '@/components/ui/ExportPDFButton';
 
 const categoryColors = {
   exercise: 'bg-blue-50 border-blue-200 text-blue-800',
@@ -220,6 +221,7 @@ export default function ActionPlanDetailPage() {
           >
             🖨️ Print
           </button>
+          <ExportPDFButton plan={plan} />
           {!editing ? (
             <Button onClick={() => setEditing(true)} variant="secondary">
               ✏️ Edit
