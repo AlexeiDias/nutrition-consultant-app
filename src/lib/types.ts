@@ -9,6 +9,20 @@ export interface UserProfile {
   createdAt: Date;
 }
 
+export type ConsultantType =
+  | 'health_coach'
+  | 'nutritionist'
+  | 'registered_dietician'
+  | 'personal_trainer'
+  | 'custom';
+
+export interface ToolPreferences {
+  aiMealPlan: boolean;
+  mealsBuilder: boolean;
+  calorieCalculator: boolean;
+  tasksSection: boolean;
+}
+
 export interface ConsultantProfile {
   uid: string;
   bio: string;
@@ -17,6 +31,9 @@ export interface ConsultantProfile {
   phone: string;
   photoUrl: string;
   isPublic: boolean;
+  consultantType: ConsultantType;
+  customTypeName: string;
+  toolPreferences: ToolPreferences;
   updatedAt: Date;
 }
 
@@ -34,6 +51,8 @@ export type ActivityLevel =
   | 'very_active'
   | 'extra_active';
 
+export type UnitSystem = 'metric' | 'imperial';
+
 export interface Client {
   id: string;
   consultantId: string;
@@ -46,6 +65,7 @@ export interface Client {
   age: number;
   height: number;
   activityLevel: ActivityLevel | '';
+  unitSystem: UnitSystem;
   medicalHistory: string;
   nutritionGoals: string;
   currentPlan: string;
@@ -151,25 +171,4 @@ export interface PlanDay {
   day: number;
   date: string;
   meals: MealItem[];
-}
-
-export type UnitSystem = 'metric' | 'imperial';
-
-export interface Client {
-  id: string;
-  consultantId: string;
-  clientUserId: string;
-  name: string;
-  email: string;
-  dob: string;
-  gender: string;
-  phone: string;
-  age: number;
-  height: number;
-  activityLevel: ActivityLevel | '';
-  unitSystem: UnitSystem;
-  medicalHistory: string;
-  nutritionGoals: string;
-  currentPlan: string;
-  createdAt: Date;
 }

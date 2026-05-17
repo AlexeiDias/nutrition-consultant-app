@@ -1,4 +1,4 @@
-//src/app/consultant/layout.tsx
+// src/app/consultant/layout.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Sidebar from '@/components/consultant/Sidebar';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { ConsultantTypeProvider } from '@/context/ConsultantTypeContext';
 
 export default function ConsultantLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
@@ -13,14 +14,9 @@ export default function ConsultantLayout({ children }: { children: React.ReactNo
 
   useEffect(() => {
     if (loading) return;
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-    if (!profile) return; // Wait for profile before checking role
-    if (profile.role !== 'consultant') {
-      router.push('/client/dashboard');
-    }
+    if (!user) { router.push('/login'); return; }
+    if (!profile) return;
+    if (profile.role !== 'consultant') { router.push('/client/dashboard'); }
   }, [user, profile, loading, router]);
 
   if (loading || !profile) {
@@ -34,11 +30,13 @@ export default function ConsultantLayout({ children }: { children: React.ReactNo
   if (profile.role !== 'consultant') return null;
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
-      <main className="flex-1 p-8 overflow-y-auto pt-20 lg:pt-8">
-        {children}
-      </main>
-    </div>
+    <ConsultantTypeProvider>
+      <div className="flex min-h-screen bg-gray-50">
+        <Sidebar />
+        <main className="flex-1 p-8 overflow-y-auto pt-20 lg:pt-8">
+          {children}
+        </main>
+      </div>
+    </ConsultantTypeProvider>
   );
 }
