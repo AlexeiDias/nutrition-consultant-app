@@ -12,6 +12,9 @@ import {
   where,
   serverTimestamp,
   setDoc,
+  orderBy,
+  onSnapshot,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
 import {
@@ -21,6 +24,7 @@ import {
   NutritionPlan,
   ActionPlan,
   ConsultantProfile,
+  Message
 } from './types';
 
 // ── Users ──────────────────────────────────────────
@@ -191,12 +195,7 @@ export const getPlansByClient = async (clientId: string): Promise<NutritionPlan[
 
 // Add these functions to src/lib/firestore.ts
 
-import {
-  collection, query, where, orderBy, addDoc,
-  onSnapshot, updateDoc, doc, getDocs, Timestamp
-} from 'firebase/firestore';
-import { db } from './firebase';
-import { Message } from './types';
+
 
 export function getConversationId(consultantId: string, clientId: string): string {
   return `${consultantId}_${clientId}`;
