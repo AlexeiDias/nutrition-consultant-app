@@ -1,5 +1,3 @@
-// Utility function to build the HTML content for the daily report email sent to consultants when a client submits their daily log. This function takes the client's name, consultant's name, and the daily log data to generate a well-formatted email with all relevant information about the client's day, including water intake, weight, mood, symptoms, meals experience, exercise, and additional notes.
-//src/lib/email.ts
 import { DailyLog } from './types';
 import { format } from 'date-fns';
 
@@ -27,7 +25,7 @@ export function buildReportEmail(
       <div style="background:#f9fafb;padding:24px;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
 
         <p style="color:#374151;">Hi ${consultantName},</p>
-        <p style="color:#374151;">${clientName} has submitted their daily nutrition report. Here's a summary:</p>
+        <p style="color:#374151;">${clientName} has submitted their daily report. Here's a summary:</p>
 
         <!-- Vitals Grid 2x2 -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0;">
@@ -73,21 +71,23 @@ export function buildReportEmail(
         </p>
         ` : ''}
 
+        <!-- Bowel Movement -->
         ${log.bowelMovement ? `
-<h3 style="color:#111827;margin:20px 0 8px;">🚽 Bowel Movement</h3>
-<p style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:12px;color:#374151;margin:0 0 16px;">
-  ${log.bowelMovement}
-</p>
-` : ''}
+        <h3 style="color:#111827;margin:20px 0 8px;">🚽 Bowel Movement</h3>
+        <p style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:12px;color:#374151;margin:0 0 16px;">
+          ${log.bowelMovement}
+        </p>
+        ` : ''}
 
-${log.nightSleep ? `
-<h3 style="color:#111827;margin:20px 0 8px;">😴 Night Sleep</h3>
-<p style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:12px;color:#374151;margin:0 0 16px;">
-  ${log.nightSleep}
-</p>
-` : ''}
+        <!-- Night Sleep -->
+        ${log.nightSleep ? `
+        <h3 style="color:#111827;margin:20px 0 8px;">😴 Night Sleep</h3>
+        <p style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:12px;color:#374151;margin:0 0 16px;">
+          ${log.nightSleep}
+        </p>
+        ` : ''}
 
-        <!-- Notes -->
+        <!-- Additional Notes -->
         ${log.notes ? `
         <h3 style="color:#111827;margin:20px 0 8px;">📝 Additional Notes</h3>
         <p style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:12px;color:#374151;margin:0 0 16px;">
