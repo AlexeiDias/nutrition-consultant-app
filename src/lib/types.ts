@@ -172,3 +172,14 @@ export interface PlanDay {
   date: string;
   meals: MealItem[];
 }
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: 'consultant' | 'client';
+  text: string;
+  createdAt: Date;
+  read: boolean;
+}

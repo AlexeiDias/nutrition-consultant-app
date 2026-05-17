@@ -10,6 +10,7 @@ const navItems = [
   { label: 'Dashboard', href: '/consultant/dashboard', icon: '📊' },
   { label: 'Clients', href: '/consultant/clients', icon: '👥' },
   { label: 'Action Plans', href: '/consultant/action-plans', icon: '📋' },
+  { label: 'Messages', href: '/consultant/messages', icon: '💬' },
   { label: 'Calculator', href: '/consultant/calculator', icon: '🧮' },
   { label: 'Reports', href: '/consultant/reports', icon: '📈' },
   { label: 'Profile', href: '/consultant/profile', icon: '👤' },

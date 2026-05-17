@@ -10,6 +10,7 @@ const navItems = [
   { label: 'Dashboard', href: '/client/dashboard', icon: '📊' },
   { label: 'Log Today', href: '/client/log', icon: '✏️' },
   { label: 'My Plan', href: '/client/plan', icon: '📋' },
+  { label: 'Messages', href: '/client/messages', icon: '💬' },
   { label: 'My Stats', href: '/client/stats', icon: '📈' },
   { label: 'History', href: '/client/history', icon: '📅' },
   { label: 'My Consultant', href: '/client/consultant', icon: '👤' },

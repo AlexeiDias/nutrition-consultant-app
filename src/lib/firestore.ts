@@ -188,3 +188,71 @@ export const getPlansByClient = async (clientId: string): Promise<NutritionPlan[
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as NutritionPlan));
 };
+
+// Add these functions to src/lib/firestore.ts
+
+import {
+  collection, query, where, orderBy, addDoc,
+  onSnapshot, updateDoc, doc, getDocs, Timestamp
+} from 'firebase/firestore';
+import { db } from './firebase';
+import { Message } from './types';
+
+export function getConversationId(consultantId: string, clientId: string): string {
+  return `${consultantId}_${clientId}`;
+}
+
+export function subscribeToMessages(
+  conversationId: string,
+  callback: (messages: Message[]) => void
+): () => void {
+  const q = query(
+    collection(db, 'messages'),
+    where('conversationId', '==', conversationId),
+    orderBy('createdAt', 'asc')
+  );
+  return onSnapshot(q, (snap) => {
+    const messages: Message[] = snap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+      createdAt: d.data().createdAt?.toDate?.() ?? new Date(),
+    })) as Message[];
+    callback(messages);
+  });
+}
+
+export async function sendMessage(message: Omit<Message, 'id'>): Promise<void> {
+  await addDoc(collection(db, 'messages'), {
+    ...message,
+    createdAt: Timestamp.now(),
+  });
+}
+
+export async function markMessagesAsRead(
+  conversationId: string,
+  readerRole: 'consultant' | 'client'
+): Promise<void> {
+  const q = query(
+    collection(db, 'messages'),
+    where('conversationId', '==', conversationId),
+    where('read', '==', false),
+    where('senderRole', '==', readerRole === 'consultant' ? 'client' : 'consultant')
+  );
+  const snap = await getDocs(q);
+  const updates = snap.docs.map((d) => updateDoc(doc(db, 'messages', d.id), { read: true }));
+  await Promise.all(updates);
+}
+
+export async function getUnreadCount(
+  conversationId: string,
+  readerRole: 'consultant' | 'client'
+): Promise<number> {
+  const q = query(
+    collection(db, 'messages'),
+    where('conversationId', '==', conversationId),
+    where('read', '==', false),
+    where('senderRole', '==', readerRole === 'consultant' ? 'client' : 'consultant')
+  );
+  const snap = await getDocs(q);
+  return snap.size;
+}
