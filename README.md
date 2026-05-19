@@ -1,6 +1,6 @@
 # 🥗 Nutrition Consultant App
 
-A full-stack web application that connects nutrition consultants with their clients. Consultants can build AI-powered meal plans, track client progress, and send daily reports. Clients can view their plans, log daily health data, and monitor their progress.
+A full-stack web application that connects nutrition consultants with their clients. Consultants can build AI-powered meal plans, track client progress, send daily reports, and message clients in real time. Clients can view their plans, log daily health data, monitor their progress, and communicate directly with their consultant.
 
 **Live Demo:** [nutrition-consultant-app.vercel.app](https://nutrition-consultant-app.vercel.app)
 
@@ -9,21 +9,109 @@ A full-stack web application that connects nutrition consultants with their clie
 ## Features
 
 ### 👩‍⚕️ Consultant Portal
-- **Client Management** — Add and manage clients with personal info, health goals, and clinical notes
-- **AI Meal Plan Generator** — Generate a full day-by-day meal plan using Claude AI based on the client's program goal (weight loss, muscle gain, diabetes management, heart health, sports performance, gut health, or custom)
-- **Meals Builder** — Edit any AI-generated meal using a food search powered by Open Food Facts (3M+ foods)
-- **Calorie Calculator** — Standalone calculator to search foods, adjust serving sizes, and calculate meal totals
-- **Action Plans** — Create plans with tasks (exercise, hydration, lifestyle), weight goals, and start/end dates
-- **Reports** — View all client daily logs in one place
-- **Email Reports** — Send or resend daily summary reports to client logs via email
-- **Profile** — Edit consultant bio, credentials, specializations, phone, and email
+
+**Practice Type System**
+- Choose from Health Coach, Nutritionist, Registered Dietician, Personal Trainer, or Custom
+- Each type sets smart default tools and labels (e.g. "Care Plan" for Dieticians, "Training Plan" for Trainers, "Goals" for Health Coaches)
+- Fully customizable — toggle any tool on or off regardless of practice type
+
+**Client Management**
+- Add and manage clients with personal info, health goals, and clinical notes
+- Body metrics: age, height, activity level for TDEE calculation
+- Imperial/metric unit preference per client
+- TDEE (Total Daily Energy Expenditure) displayed on client profile using Mifflin-St Jeor equation
+
+**AI Meal Plan Generator**
+- Generates a full day-by-day meal plan using Claude AI based on the client's program goals
+- Supports all goals: Weight loss, Muscle gain, Diabetes management, Heart health, Sports performance, Gut health, General healthy eating, or Custom
+- Multiple goals can be selected simultaneously (e.g. Weight loss + Diabetes management)
+- Calorie targets calculated from client's TDEE — deficit for weight loss, surplus for muscle gain
+- Each meal includes ingredients with quantities and calories
+- 5 meals per day: Breakfast, Snack, Lunch, Afternoon Snack, Dinner
+
+**Meals Builder**
+- Edit any AI-generated meal using an inline calorie calculator
+- Search 3M+ foods via Open Food Facts API (no API key required)
+- Adjust serving sizes and recalculate calories in real time
+- Manual meal building available when AI generator is disabled
+
+**Draft/Review Safety Flow**
+- All AI-generated plans save as Draft with a clinical safety disclaimer
+- Consultant reviews meals for accuracy and marks plan as Reviewed
+- Client sees pending/reviewed status badge on their plan
+
+**Action Plans**
+- Create plans with tasks categorized as Exercise, Hydration, or Lifestyle
+- Labels adapt to practice type (Tasks / Goals / Workout Tasks)
+- Set start/end dates, starting weight, and target weight
+- Progress bar showing task completion
+
+**PDF Export**
+- Export full action plan as a professionally formatted PDF
+- Includes plan details, TDEE, weight goals, all tasks, and complete day-by-day meal plan with macros and ingredients
+- Available in both consultant and client portals
+
+**Calorie Calculator**
+- Standalone calculator in the consultant sidebar
+- Search any food, adjust grams, build meals with running calorie totals
+
+**Reports**
+- View all client daily logs in one place
+- See mood, water intake, weight, meals experience, exercise, symptoms, bowel movement, sleep
+
+**Email Reports**
+- Send or resend daily summary reports to consultant email
+- Report includes all logged fields: vitals, meals, exercise, symptoms, bowel movement, sleep, notes
+
+**Real-Time Messaging**
+- One conversation thread per client
+- Messages appear instantly without refreshing (Firestore real-time listeners)
+- Read receipts
+- Email notification sent to recipient when new message arrives
+- Unread message count badges on sidebar
+
+**Profile**
+- Edit bio, credentials, specializations, phone, email
+- Set practice type and customize tool preferences
+
+---
 
 ### 📱 Client Portal
-- **My Plan** — View the full day-by-day meal plan with ingredients and calories, plus two progress bars: program day countdown and task completion
-- **Log Today** — Daily logging: water intake, weight (optional), mood, symptoms, exercise, meals experience, bowel movement, night sleep, and additional notes
-- **My Stats** — Charts for water intake, weight, and mood trends over time
-- **History** — View all past logs and resend email reports
-- **My Consultant** — View consultant's public profile
+
+**My Plan**
+- View the full day-by-day meal plan with ingredients and calories
+- Two progress bars: program day countdown and task completion
+- Plan status badge: pending review or reviewed by consultant
+- Weight goal cards (starting and target)
+- Export plan as PDF
+- Unit toggle: switch between metric and imperial at any time
+
+**Log Today**
+- Water intake (L or fl oz)
+- Weight — optional, recommended first and last day only
+- Mood selector
+- Symptoms
+- Exercise experience
+- Meals experience
+- Bowel movement notes
+- Night sleep notes
+- Additional notes
+- All values stored in metric, displayed in client's preferred units
+
+**My Stats**
+- Charts for water intake, weight, and mood trends over time
+
+**History**
+- View all past daily logs
+- Resend email reports
+
+**Messages**
+- Real-time chat with consultant
+- Messages appear instantly
+- Email notification when consultant sends a message
+
+**My Consultant**
+- View consultant's public profile
 
 ---
 
@@ -36,9 +124,11 @@ A full-stack web application that connects nutrition consultants with their clie
 | Styling | Tailwind CSS |
 | Auth | Firebase Authentication |
 | Database | Firebase Firestore |
+| Real-time | Firestore onSnapshot listeners |
 | AI Meal Plans | Anthropic Claude API (claude-opus-4-6) |
 | Food Database | Open Food Facts API (free, no key required) |
 | Email | Nodemailer + Gmail |
+| PDF Export | jsPDF |
 | Charts | Recharts |
 | Deployment | Vercel |
 | Cron Jobs | Vercel Cron (daily reminders at 8AM UTC) |
@@ -86,6 +176,9 @@ GMAIL_APP_PASSWORD=
 # Anthropic AI
 ANTHROPIC_API_KEY=
 
+# App URL
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+
 # Cron protection
 CRON_SECRET=
 ```
@@ -105,45 +198,57 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 src/
 ├── app/
-│   ├── consultant/          # Consultant portal pages
+│   ├── consultant/              # Consultant portal pages
 │   │   ├── dashboard/
 │   │   ├── clients/
 │   │   ├── action-plans/
 │   │   ├── calculator/
+│   │   ├── messages/
 │   │   ├── reports/
 │   │   └── profile/
-│   ├── client/              # Client portal pages
+│   ├── client/                  # Client portal pages
 │   │   ├── dashboard/
 │   │   ├── log/
 │   │   ├── plan/
+│   │   ├── messages/
 │   │   ├── stats/
 │   │   ├── history/
 │   │   └── consultant/
-│   └── api/                 # API routes
+│   └── api/                     # API routes
 │       ├── generate-meal-plan/
 │       ├── send-report/
 │       ├── send-reminder/
+│       ├── send-message-notification/
 │       ├── update-client-email/
 │       └── update-consultant-email/
 ├── components/
-│   ├── consultant/          # Consultant-specific components
+│   ├── consultant/              # Consultant-specific components
 │   │   ├── Sidebar.tsx
 │   │   ├── CalorieCalculator.tsx
 │   │   └── MealsBuilder.tsx
-│   ├── client/              # Client-specific components
-│   │   └── ClientSidebar.tsx
-│   └── ui/                  # Shared UI components
+│   ├── client/                  # Client-specific components
+│   │   ├── ClientSidebar.tsx
+│   │   └── UnitToggle.tsx
+│   ├── shared/                  # Shared between portals
+│   │   └── MessageThread.tsx
+│   └── ui/                      # Shared UI components
 │       ├── Button.tsx
 │       ├── Input.tsx
-│       └── LoadingSpinner.tsx
+│       ├── LoadingSpinner.tsx
+│       └── ExportPDFButton.tsx
 ├── context/
-│   └── AuthContext.tsx      # Firebase auth context
+│   ├── AuthContext.tsx
+│   ├── UnitContext.tsx
+│   └── ConsultantTypeContext.tsx
 └── lib/
-    ├── firebase.ts          # Firebase client config
-    ├── firebase-admin.ts    # Firebase Admin SDK
-    ├── firestore.ts         # Firestore helper functions
-    ├── email.ts             # Email template builder
-    └── types.ts             # TypeScript interfaces
+    ├── firebase.ts
+    ├── firebase-admin.ts
+    ├── firestore.ts
+    ├── email.ts
+    ├── export-pdf.ts
+    ├── units.ts
+    ├── consultant-type.ts
+    └── types.ts
 ```
 
 ---
@@ -154,10 +259,12 @@ src/
 ```typescript
 {
   consultantId, clientId, clientName,
-  title, programGoal, status,
+  title, programGoal, programGoals,
+  planStatus: 'draft' | 'reviewed' | 'approved',
+  tdee, status,
   startDate, nextConsultation,
   startWeight, targetWeight,
-  planDays: PlanDay[],   // AI-generated day-by-day meals
+  planDays: PlanDay[],
   tasks: ActionPlanTask[]
 }
 ```
@@ -182,6 +289,75 @@ src/
 }
 ```
 
+### Message
+```typescript
+{
+  conversationId,  // consultantId_clientId
+  senderId, senderName, senderRole,
+  text, createdAt, read
+}
+```
+
+### ConsultantProfile
+```typescript
+{
+  consultantType: 'health_coach' | 'nutritionist' | 'registered_dietician' | 'personal_trainer' | 'custom',
+  customTypeName,
+  toolPreferences: {
+    aiMealPlan, mealsBuilder, calorieCalculator, tasksSection
+  },
+  bio, credentials, specializations, phone, isPublic
+}
+```
+
+### Client
+```typescript
+{
+  name, email, phone, dob, gender,
+  age, height, activityLevel,
+  unitSystem: 'metric' | 'imperial',
+  medicalHistory, nutritionGoals, currentPlan
+}
+```
+
+---
+
+## Firestore Security Rules
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /clients/{clientId} {
+      allow read, write: if request.auth != null;
+    }
+    match /dailyLogs/{logId} {
+      allow read, write: if request.auth != null;
+    }
+    match /actionPlans/{planId} {
+      allow read, write: if request.auth != null;
+    }
+    match /profiles/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /messages/{messageId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+## Required Firestore Indexes
+
+```
+Collection: messages
+Fields: conversationId (Ascending), createdAt (Ascending)
+```
+
 ---
 
 ## Deployment
@@ -204,43 +380,44 @@ A daily reminder email is sent to all clients at 8AM UTC via Vercel Cron. Config
 
 ---
 
-## Firestore Security Rules
+## Consultant Practice Types
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /clients/{clientId} {
-      allow read, write: if request.auth != null;
-    }
-    match /dailyLogs/{logId} {
-      allow read, write: if request.auth != null;
-    }
-    match /actionPlans/{planId} {
-      allow read, write: if request.auth != null;
-    }
-    match /profiles/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
-```
+| Type | Client Label | Plan Label | Tasks Label | AI Meals | Meals Builder |
+|---|---|---|---|---|---|
+| Health Coach | Clients | Program | Goals | ❌ | ❌ |
+| Nutritionist | Clients | Action Plan | Tasks | ✅ | ✅ |
+| Registered Dietician | Patients | Care Plan | Tasks | ✅ | ✅ |
+| Personal Trainer | Athletes | Training Plan | Workout Tasks | ❌ | ❌ |
+| Custom | Clients | Action Plan | Tasks | ✅ | ✅ |
+
+All tools can be individually toggled on or off regardless of practice type.
+
+---
+
+## Unit System
+
+All data is stored in metric units internally. Display conversions happen at render time.
+
+| Measurement | Metric | Imperial |
+|---|---|---|
+| Weight | kg | lb |
+| Height | cm | ft/in |
+| Food quantity | g | oz |
+| Water | L | fl oz |
+
+Unit preference is set per client by the consultant and can be overridden by the client in their portal.
 
 ---
 
 ## Roadmap
 
 - [ ] Native mobile app (React Native)
-- [ ] In-app messaging between consultant and client
 - [ ] Photo food logging
 - [ ] Payment integration for consultant subscriptions
 - [ ] Client progress photos
-- [ ] PDF export of action plans
 - [ ] Multi-language support
+- [ ] Group messaging / broadcast to all clients
+- [ ] Appointment scheduling
 
 ---
 
